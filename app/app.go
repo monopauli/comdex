@@ -92,6 +92,10 @@ import (
 	"github.com/comdex-official/comdex/x/vault"
 	vaultkeeper "github.com/comdex-official/comdex/x/vault/keeper"
 	vaulttypes "github.com/comdex-official/comdex/x/vault/types"
+
+	"github.com/comdex-official/comdex/x/gamm"
+	gammkeeper "github.com/comdex-official/comdex/x/gamm/keeper"
+	gammtypes "github.com/comdex-official/comdex/x/gamm/types"
 )
 
 const (
@@ -133,6 +137,7 @@ var (
 		liquidity.AppModuleBasic{},
 		asset.AppModuleBasic{},
 		oracle.AppModuleBasic{},
+		gamm.AppModule{},
 	)
 )
 
@@ -195,6 +200,7 @@ type App struct {
 	vaultKeeper     vaultkeeper.Keeper
 	liquidityKeeper liquiditykeeper.Keeper
 	oracleKeeper    oraclekeeper.Keeper
+	gammKeeper		gammkeeper.Keeper
 }
 
 // New returns a reference to an initialized App.
@@ -218,7 +224,7 @@ func New(
 			minttypes.StoreKey, distrtypes.StoreKey, slashingtypes.StoreKey,
 			govtypes.StoreKey, paramstypes.StoreKey, ibchost.StoreKey, upgradetypes.StoreKey,
 			evidencetypes.StoreKey, ibctransfertypes.StoreKey, capabilitytypes.StoreKey,
-			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey,
+			vaulttypes.StoreKey, liquiditytypes.StoreKey, assettypes.StoreKey, oracletypes.StoreKey,gammtypes.StoreKey,
 		)
 	)
 
@@ -260,6 +266,7 @@ func New(
 	app.paramsKeeper.Subspace(vaulttypes.ModuleName)
 	app.paramsKeeper.Subspace(assettypes.ModuleName)
 	app.paramsKeeper.Subspace(oracletypes.ModuleName)
+	app.paramsKeeper.Subspace(gammtypes.ModuleName)
 
 	// set the BaseApp's parameter store
 	baseApp.SetParamStore(
@@ -441,6 +448,15 @@ func New(
 		app.scopedIBCKeeper,
 		app.assetKeeper,
 	)
+
+	app.gammKeeper = gammkeeper.NewKeeper(
+		app.cdc,
+		app.keys[gammtypes.StoreKey],
+		app.GetSubspace(gammtypes.ModuleName),
+		app.accountKeeper,
+		app.bankKeeper,
+		app.distrKeeper,
+		)
 	/****  Module Options ****/
 
 	// NOTE: we may consider parsing `appOpts` inside module constructors. For the moment
@@ -472,6 +488,7 @@ func New(
 		liquidity.NewAppModule(app.cdc, app.liquidityKeeper, app.accountKeeper, app.bankKeeper, app.distrKeeper),
 		asset.NewAppModule(app.cdc, app.assetKeeper),
 		oracle.NewAppModule(app.cdc, app.oracleKeeper),
+		gamm.NewAppModule(app.cdc, app.gammKeeper, app.accountKeeper, app.bankKeeper),
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -507,6 +524,7 @@ func New(
 		ibctransfertypes.ModuleName,
 		assettypes.ModuleName,
 		vaulttypes.ModuleName,
+		gammtypes.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.crisisKeeper)
@@ -685,5 +703,6 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		vaulttypes.ModuleName:          {authtypes.Minter, authtypes.Burner},
 		liquiditytypes.ModuleName:      {authtypes.Minter, authtypes.Burner},
+		gammtypes.ModuleName: nil,
 	}
 }
