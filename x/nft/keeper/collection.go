@@ -45,6 +45,8 @@ func (k Keeper) SetCollection(ctx sdk.Context, collection types.Collection) erro
 			nft.GetData(),
 			nft.IsTransferable(),
 			nft.IsExtensible(),
+			nft.IsNSFW(),
+			nft.RoyaltyShare,
 			creator,
 			nft.GetOwner(),
 		); err != nil {
@@ -83,9 +85,9 @@ func (k Keeper) GetPaginateCollection(ctx sdk.Context,
 	store := ctx.KVStore(k.storeKey)
 	nftStore := prefix.NewStore(store, types.KeyNFT(denomId, ""))
 	pagination, err := query.Paginate(nftStore, request.Pagination, func(key []byte, value []byte) error {
-		var oNFT types.NFT
-		k.cdc.MustUnmarshal(value, &oNFT)
-		nfts = append(nfts, oNFT)
+		var NFT types.NFT
+		k.cdc.MustUnmarshal(value, &NFT)
+		nfts = append(nfts, NFT)
 		return nil
 	})
 	if err != nil {

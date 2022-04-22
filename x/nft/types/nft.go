@@ -13,7 +13,7 @@ var _ exported.NFT = NFT{}
 
 func NewNFT(
 	id string, metadata Metadata, data string, transferable, extensible bool, owner sdk.AccAddress,
-	createdTime time.Time) NFT {
+	createdTime time.Time, nsfw bool, royaltyShare sdk.Dec) NFT {
 	return NFT{
 		Id:           id,
 		Metadata:     metadata,
@@ -22,6 +22,8 @@ func NewNFT(
 		Transferable: transferable,
 		Extensible:   extensible,
 		CreatedAt:    createdTime,
+		Nsfw:         nsfw,
+		RoyaltyShare: royaltyShare,
 	}
 }
 
@@ -65,6 +67,13 @@ func (nft NFT) IsExtensible() bool {
 func (nft NFT) GetCreatedTime() time.Time {
 	return nft.CreatedAt
 }
+func (nft NFT) IsNSFW() bool {
+	return nft.Nsfw
+}
+
+func (nft NFT) GetRoyaltyShare() sdk.Dec {
+	return nft.RoyaltyShare
+}
 
 // NFT
 
@@ -77,31 +86,17 @@ func NewNFTs(nfts ...exported.NFT) NFTs {
 	return nfts
 }
 
-func ValidateNFTID(nftID string) error {
-	nftID = strings.TrimSpace(nftID)
-	if len(nftID) < MinDenomLen || len(nftID) > MaxDenomLen {
+func ValidateNFTID(nftId string) error {
+	nftId = strings.TrimSpace(nftId)
+	if len(nftId) < MinIDLen || len(nftId) > MaxIDLen {
 		return sdkerrors.Wrapf(
 			ErrInvalidNFTID,
-			"invalid nftID %s, only accepts value [%d, %d]", nftID, MinDenomLen, MaxDenomLen)
+			"invalid nftID %s, only accepts value [%d, %d]", nftId, MinDenomLen, MaxDenomLen)
 	}
-	if !IsBeginWithAlpha(nftID) || !IsAlphaNumeric(nftID) {
+	if !IsBeginWithAlpha(nftId) || !IsAlphaNumeric(nftId) {
 		return sdkerrors.Wrapf(
 			ErrInvalidNFTID,
-			"invalid nftID %s, only accepts alphanumeric characters,and begin with an english letter", nftID)
-	}
-	return nil
-}
-
-func ValidateMediaURI(mediaURI string) error {
-	if len(mediaURI) > MaxMediaURILen {
-		return sdkerrors.Wrapf(ErrInvalidMediaURI, "invalid mediaURI %s, only accepts value [0, %d]", mediaURI, MaxMediaURILen)
-	}
-	return nil
-}
-
-func ValidatePreviewURI(previewURI string) error {
-	if len(previewURI) > MaxPreviewURILen {
-		return sdkerrors.Wrapf(ErrInvalidPreviewURI, "invalid previewURI %s, only accepts value [0, %d]", previewURI, MaxPreviewURILen)
+			"invalid nftId %s, only accepts alphanumeric characters and begin with an english letter", nftId)
 	}
 	return nil
 }

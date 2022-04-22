@@ -16,7 +16,6 @@ service Msg {
   rpc TransferDenom(MsgTransferDenom) returns (MsgTransferDenomResponse);
 
   rpc MintNFT(MsgMintNFT) returns (MsgMintNFTResponse);
-  rpc EditNFT(MsgEditNFT) returns (MsgEditNFTResponse);
   rpc TransferNFT(MsgTransferNFT) returns (MsgTransferNFTResponse);
   rpc BurnNFT(MsgBurnNFT) returns (MsgBurnNFTResponse);
 // this line is used by starport scaffolding # proto/tx/rpc
@@ -74,8 +73,14 @@ message MsgMintNFT {
   string   data            = 4;
   bool     transferable    = 5;
   bool     extensible      = 6;
-  string   sender          = 7;
-  string   recipient       = 8;
+  bool     nsfw            = 7;
+  string   royalty_share   = 8 [
+    (gogoproto.nullable)   = false,
+    (gogoproto.moretags)   = "yaml:\"royalty_share\"",
+    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec"
+  ];
+  string   sender          = 9;
+  string   recipient       = 10;
 }
 
 message MsgMintNFTResponse {}
@@ -90,21 +95,6 @@ message MsgTransferNFT {
 }
 
 message MsgTransferNFTResponse {}
-
-
-message MsgEditNFT {
-  option (gogoproto.equal) = true;
-
-  string   id              = 1;
-  string   denom_id        = 2 [(gogoproto.moretags) = "yaml:\"denom_id\""];
-  Metadata metadata        = 3 [(gogoproto.nullable) = false];
-  string   data            = 4;
-  string   transferable    = 5;
-  string   extensible      = 6;
-  string   sender          = 7;
-}
-
-message MsgEditNFTResponse {}
 
 message MsgBurnNFT {
   option (gogoproto.equal) = true;

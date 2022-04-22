@@ -37,13 +37,6 @@ message EventMintNFT {
   string owner    = 4;
 }
 
-// EventEditNFT is emitted on Edit
-message EventEditNFT {
-  string denom_id = 1 [(gogoproto.moretags) = "yaml:\"denom_id\""];
-  string id       = 2;
-  string owner    = 3;
-}
-
 // EventTransferNFT is emitted on Transfer
 message EventTransferNFT {
   string denom_id  = 1 [(gogoproto.moretags) = "yaml:\"denom_id\""];

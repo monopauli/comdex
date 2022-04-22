@@ -12,7 +12,6 @@ const (
 	TypeMsgUpdateDenom   = "update_denom"
 	TypeMsgTransferDenom = "transfer_denom"
 	TypeMsgMintNFT       = "mint_nft"
-	TypeMsgEditNFT       = "edit_nft"
 	TypeMsgTransferNFT   = "transfer_nft"
 	TypeMsgBurnNFT       = "burn_nft"
 )
@@ -22,7 +21,6 @@ var (
 	_ sdk.Msg = &MsgUpdateDenom{}
 	_ sdk.Msg = &MsgTransferDenom{}
 	_ sdk.Msg = &MsgMintNFT{}
-	_ sdk.Msg = &MsgEditNFT{}
 	_ sdk.Msg = &MsgTransferNFT{}
 	_ sdk.Msg = &MsgBurnNFT{}
 )
@@ -53,6 +51,20 @@ func (msg MsgCreateDenom) ValidateBasic() error {
 	name := strings.TrimSpace(msg.Name)
 	if len(name) > 0 && !utf8.ValidString(name) {
 		return sdkerrors.Wrap(ErrInvalidDenom, "denom name is invalid")
+		return sdkerrors.Wrap(ErrInvalidName, "denom name is invalid")
+	}
+	if err := ValidateName(name); err != nil {
+		return err
+	}
+	description := strings.TrimSpace(msg.Description)
+	if len(description) > 0 && !utf8.ValidString(description) {
+		return sdkerrors.Wrap(ErrInvalidDescription, "denom description is invalid")
+	}
+	if err := ValidateDescription(description); err != nil {
+		return err
+	}
+	if err := ValidateURI(msg.PreviewURI); err != nil {
+		return err
 	}
 
 	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
@@ -96,6 +108,20 @@ func (msg MsgUpdateDenom) ValidateBasic() error {
 	name := msg.Name
 	if len(name) > 0 && !utf8.ValidString(name) {
 		return sdkerrors.Wrap(ErrInvalidDenom, "denom name is invalid")
+		return sdkerrors.Wrap(ErrInvalidName, "denom name is invalid")
+	}
+	if err := ValidateName(name); err != nil {
+		return err
+	}
+	description := strings.TrimSpace(msg.Description)
+	if len(description) > 0 && !utf8.ValidString(description) {
+		return sdkerrors.Wrap(ErrInvalidDescription, "denom description is invalid")
+	}
+	if err := ValidateDescription(description); err != nil {
+		return err
+	}
+	if err := ValidateURI(msg.PreviewURI); err != nil {
+		return err
 	}
 
 	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
@@ -155,7 +181,8 @@ func (msg MsgTransferDenom) GetSigners() []sdk.AccAddress {
 }
 
 func NewMsgMintNFT(
-	denomId, sender, recipient string, metadata Metadata, data string, transferable, extensible bool) *MsgMintNFT {
+	denomId, sender, recipient string, metadata Metadata, data string,
+	transferable, extensible, nsfw bool, royaltyShare sdk.Dec) *MsgMintNFT {
 
 	return &MsgMintNFT{
 		Id:           GenUniqueID(IDPrefix),
@@ -164,6 +191,8 @@ func NewMsgMintNFT(
 		Data:         data,
 		Transferable: transferable,
 		Extensible:   extensible,
+		Nsfw:         nsfw,
+		RoyaltyShare: royaltyShare,
 		Sender:       sender,
 		Recipient:    recipient,
 	}
@@ -183,12 +212,21 @@ func (msg MsgMintNFT) ValidateBasic() error {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid recipient address; %s", err)
 	}
 
-	if err := ValidateDenomID(msg.DenomId); err != nil {
+	if err := ValidateName(msg.Metadata.Name); err != nil {
 		return err
 	}
 
-	if err := ValidateMediaURI(msg.Metadata.MediaURI); err != nil {
+	if err := ValidateDescription(msg.Metadata.Description); err != nil {
 		return err
+	}
+	if err := ValidateURI(msg.Metadata.MediaURI); err != nil {
+		return err
+	}
+	if err := ValidateURI(msg.Metadata.PreviewURI); err != nil {
+		return err
+	}
+	if msg.RoyaltyShare.IsNegative() || msg.RoyaltyShare.GTE(sdk.NewDec(1)) {
+		return sdkerrors.Wrapf(ErrInvalidPercentage, "invalid royalty share percentage decimal value; %d, must be positive and less than 1", msg.RoyaltyShare)
 	}
 
 	return ValidateNFTID(msg.Id)
@@ -249,52 +287,6 @@ func (msg MsgTransferNFT) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{from}
 }
 
-func NewMsgEditNFT(
-	id, denomId string, metadata Metadata, data,
-	transferable, extensible, sender string) *MsgEditNFT {
-	return &MsgEditNFT{
-		Id:           id,
-		DenomId:      denomId,
-		Metadata:     metadata,
-		Data:         data,
-		Transferable: transferable,
-		Extensible:   extensible,
-		Sender:       sender,
-	}
-}
-
-func (msg MsgEditNFT) Route() string { return RouterKey }
-
-func (msg MsgEditNFT) Type() string { return TypeMsgEditNFT }
-
-func (msg MsgEditNFT) ValidateBasic() error {
-	if _, err := sdk.AccAddressFromBech32(msg.Sender); err != nil {
-		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid sender address; %s", err)
-	}
-
-	if err := ValidateDenomID(msg.DenomId); err != nil {
-		return err
-	}
-
-	if err := ValidateMediaURI(msg.Metadata.MediaURI); err != nil {
-		return err
-	}
-	return ValidateNFTID(msg.Id)
-}
-
-func (msg MsgEditNFT) GetSignBytes() []byte {
-	bz := ModuleCdc.MustMarshalJSON(&msg)
-	return sdk.MustSortJSON(bz)
-}
-
-func (msg MsgEditNFT) GetSigners() []sdk.AccAddress {
-	from, err := sdk.AccAddressFromBech32(msg.Sender)
-	if err != nil {
-		panic(err)
-	}
-	return []sdk.AccAddress{from}
-}
-
 func NewMsgBurnNFT(denomId, id, sender string) *MsgBurnNFT {
 	return &MsgBurnNFT{
 		DenomId: denomId,
@@ -312,9 +304,6 @@ func (msg MsgBurnNFT) ValidateBasic() error {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "invalid sender address; %s", err)
 	}
 
-	if err := ValidateDenomID(msg.DenomId); err != nil {
-		return err
-	}
 	return ValidateNFTID(msg.Id)
 }
 

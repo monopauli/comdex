@@ -5,17 +5,19 @@ import (
 )
 
 const (
-	FlagName         = "name"
-	FlagDescription  = "description"
-	FlagMediaURI     = "media-uri"
-	FlagPreviewURI   = "preview-uri"
-	FlagData         = "data"
-	FlagTransferable = "transferable"
-	FlagExtensible   = "extensible"
-	FlagRecipient    = "recipient"
-	FlagOwner        = "owner"
-	FlagDenomID      = "denom-id"
-	FlagSchema       = "schema"
+	FlagName            = "name"
+	FlagDescription     = "description"
+	FlagMediaURI        = "media-uri"
+	FlagPreviewURI      = "preview-uri"
+	FlagData            = "data"
+	FlagNonTransferable = "non-transferable"
+	FlagInExtensible    = "inextensible"
+	FlagRecipient       = "recipient"
+	FlagOwner           = "owner"
+	FlagDenomID         = "denom-id"
+	FlagSchema          = "schema"
+	FlagNsfw            = "nsfw"
+	FlagRoyaltyShare    = "royalty-share"
 )
 
 var (
@@ -23,7 +25,6 @@ var (
 	FsUpdateDenom   = flag.NewFlagSet("", flag.ContinueOnError)
 	FsTransferDenom = flag.NewFlagSet("", flag.ContinueOnError)
 	FsMintNFT       = flag.NewFlagSet("", flag.ContinueOnError)
-	FsEditNFT       = flag.NewFlagSet("", flag.ContinueOnError)
 	FsTransferNFT   = flag.NewFlagSet("", flag.ContinueOnError)
 	FsQuerySupply   = flag.NewFlagSet("", flag.ContinueOnError)
 	FsQueryOwner    = flag.NewFlagSet("", flag.ContinueOnError)
@@ -48,16 +49,10 @@ func init() {
 	FsMintNFT.String(FlagDescription, "", "Description of nft")
 	FsMintNFT.String(FlagData, "", "custom data of nft")
 
-	FsMintNFT.String(FlagTransferable, "yes", "transferability of nft (yes | no)")
-	FsMintNFT.String(FlagExtensible, "yes", "extensisbility of nft (yes | no)")
-
-	FsEditNFT.String(FlagMediaURI, "[do-not-modify]", "Media uri of nft")
-	FsEditNFT.String(FlagPreviewURI, "[do-not-modify]", "Preview uri of nft")
-	FsEditNFT.String(FlagName, "[do-not-modify]", "Name of nft")
-	FsEditNFT.String(FlagDescription, "[do-not-modify]", "Description of nft")
-	FsEditNFT.String(FlagTransferable, "[do-not-modify]", "transferability of nft")
-	FsEditNFT.String(FlagData, "[do-not-modify]", "custom data of nft")
-	FsEditNFT.String(FlagExtensible, "[do-not-modify]", "extensibility of nft (yes | no)")
+	FsMintNFT.Bool(FlagNonTransferable, false, "To mint non-transferable nft")
+	FsMintNFT.Bool(FlagInExtensible, false, "To mint non-extensisble nft")
+	FsMintNFT.Bool(FlagNsfw, false, "not safe for work flag for nft")
+	FsMintNFT.String(FlagRoyaltyShare, "", "Royalty share value decimal value between 0 and 1")
 
 	FsTransferNFT.String(FlagRecipient, "", "Receiver of the nft. default value is sender address of transaction")
 	FsQuerySupply.String(FlagOwner, "", "The owner of a nft")

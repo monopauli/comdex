@@ -55,18 +55,8 @@ type mintNFTReq struct {
 	Data         string         `json:"data"`
 	Transferable string         `json:"transferable"`
 	Extensible   string         `json:"extensible"`
-}
-
-type editNFTReq struct {
-	BaseReq      rest.BaseReq   `json:"base_req"`
-	Sender       sdk.AccAddress `json:"sender"`
-	Name         string         `json:"name"`
-	Description  string         `json:"description"`
-	MediaURI     string         `json:"media_uri"`
-	PreviewURI   string         `json:"preview_uri"`
-	Data         string         `json:"data"`
-	Transferable string         `json:"transferable"`
-	Extensible   string         `json:"extensible"`
+	Nsfw         string         `json:"nsfw"`
+	RoyaltyShare sdk.Dec        `json:"royalty_share"`
 }
 
 type transferNFTReq struct {

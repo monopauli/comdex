@@ -14,7 +14,6 @@ func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgUpdateDenom{}, "nft/UpdateDenom", nil)
 	cdc.RegisterConcrete(&MsgTransferDenom{}, "nft/TransferDenom", nil)
 	cdc.RegisterConcrete(&MsgTransferNFT{}, "nft/MsgTransferNFT", nil)
-	cdc.RegisterConcrete(&MsgEditNFT{}, "nft/MsgEditNFT", nil)
 	cdc.RegisterConcrete(&MsgMintNFT{}, "nft/MsgMintNFT", nil)
 	cdc.RegisterConcrete(&MsgBurnNFT{}, "nft/MsgBurnNFT", nil)
 
@@ -29,7 +28,6 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgUpdateDenom{},
 		&MsgTransferDenom{},
 		&MsgTransferNFT{},
-		&MsgEditNFT{},
 		&MsgMintNFT{},
 		&MsgBurnNFT{},
 	)

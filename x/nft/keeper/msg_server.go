@@ -122,6 +122,8 @@ func (m msgServer) MintNFT(goCtx context.Context,
 		msg.Data,
 		msg.Transferable,
 		msg.Extensible,
+		msg.Nsfw,
+		msg.RoyaltyShare,
 		sender,
 		recipient,
 	); err != nil {
@@ -138,35 +140,6 @@ func (m msgServer) MintNFT(goCtx context.Context,
 	)
 
 	return &types.MsgMintNFTResponse{}, nil
-}
-
-func (m msgServer) EditNFT(goCtx context.Context,
-	msg *types.MsgEditNFT) (*types.MsgEditNFTResponse, error) {
-
-	sender, err := sdk.AccAddressFromBech32(msg.Sender)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := sdk.UnwrapSDKContext(goCtx)
-	if err := m.Keeper.EditNFT(ctx, msg.DenomId, msg.Id,
-		msg.Metadata,
-		msg.Data,
-		msg.Transferable,
-		msg.Extensible,
-		sender,
-	); err != nil {
-		return nil, err
-	}
-
-	ctx.EventManager().EmitTypedEvent(
-		&types.EventEditNFT{
-			Id:      msg.Id,
-			DenomId: msg.DenomId,
-			Owner:   msg.Sender,
-		},
-	)
-	return &types.MsgEditNFTResponse{}, nil
 }
 
 func (m msgServer) TransferNFT(goCtx context.Context,

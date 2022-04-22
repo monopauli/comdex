@@ -28,7 +28,6 @@ func NewTxCmd() *cobra.Command {
 		GetCmdUpdateDenom(),
 		GetCmdTransferDenom(),
 		GetCmdMintNFT(),
-		GetCmdEditNFT(),
 		GetCmdTransferNFT(),
 		GetCmdBurnNFT(),
 	)
@@ -101,8 +100,21 @@ func GetCmdMintNFT() *cobra.Command {
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Mint an NFT.
 Example:
-$ %s tx nft mint [denom-id] --type <nft-type> --name <nft-name> --description <nft-descritpion> --media-uri=<uri> --preview-uri=<uri> 
---transferable yes --extensible yes --recipient=<recipient> --from=<key-name> --chain-id=<chain-id> --fees=<fee>`,
+$ %s tx nft mint [denom-id] \ 
+	--name <nft-name> \
+	--description <nft-descritpion> \
+	--media-uri=<uri> \
+	--preview-uri=<uri> \
+	--from=<key-name> \
+	--chain-id=<chain-id> \
+	--fees=<fee>
+	
+Additional Flags
+    --non-trasferable
+    --inextensible
+    --nsfw
+	--royalty-share="0.05"
+`,
 				version.AppName,
 			),
 		),
@@ -167,30 +179,40 @@ $ %s tx nft mint [denom-id] --type <nft-type> --name <nft-name> --description <n
 				return err
 			}
 
-			var transferable bool
-			transferability, err := cmd.Flags().GetString(FlagTransferable)
+			transferable := true
+			nonTransferable, err := cmd.Flags().GetBool(FlagNonTransferable)
 			if err != nil {
 				return err
 			}
-			transferability = strings.ToLower(transferability)
-			if transferability == "false" || transferability == "no" {
+			if nonTransferable {
 				transferable = false
-			} else if transferability == "true" || transferability == "yes" {
-				transferable = true
-			} else {
-				return fmt.Errorf("invalid option for transferable flag , valid options are true|false, yes|no")
 			}
-			var extensible bool
-			extensibility, err := cmd.Flags().GetString(FlagExtensible)
+			extensible := true
+			inExtensible, err := cmd.Flags().GetBool(FlagInExtensible)
 			if err != nil {
 				return err
 			}
-			if extensibility == "false" || extensibility == "no" {
+			if inExtensible {
 				extensible = false
-			} else if extensibility == "true" || extensibility == "yes" {
-				extensible = true
-			} else {
-				return fmt.Errorf("invalid option for extensible flag , valid options are yes|no")
+			}
+			nsfw := false
+			nsfwFlag, err := cmd.Flags().GetBool(FlagNsfw)
+			if err != nil {
+				return err
+			}
+			if nsfwFlag {
+				nsfw = true
+			}
+			royaltyShareStr, err := cmd.Flags().GetString(FlagRoyaltyShare)
+			if err != nil {
+				return err
+			}
+			royaltyShare := sdk.NewDec(0)
+			if len(royaltyShareStr) > 0 {
+				royaltyShare, err = sdk.NewDecFromStr(royaltyShareStr)
+				if err != nil {
+					return err
+				}
 			}
 
 			msg := types.NewMsgMintNFT(
@@ -201,6 +223,8 @@ $ %s tx nft mint [denom-id] --type <nft-type> --name <nft-name> --description <n
 				data,
 				transferable,
 				extensible,
+				nsfw,
+				royaltyShare,
 			)
 			if err := msg.ValidateBasic(); err != nil {
 				return err
@@ -210,104 +234,6 @@ $ %s tx nft mint [denom-id] --type <nft-type> --name <nft-name> --description <n
 	}
 	cmd.Flags().AddFlagSet(FsMintNFT)
 	_ = cmd.MarkFlagRequired(FlagMediaURI)
-	flags.AddTxFlagsToCmd(cmd)
-
-	return cmd
-}
-
-func GetCmdEditNFT() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "edit [denom-id] [nft-id]",
-		Long: strings.TrimSpace(
-			fmt.Sprintf(`Edit the data of an NFT.
-Example:
-$ %s tx nft edit [denom-id] [nft-id] --name=<nft-name> --description=<nft-description> --media-uri=<uri>
---preview-uri=<uri> --type=<nft-type> --transferable=yes --extensible=yes --from=<key-name> --chain-id=<chain-id> --fees=<fee>`,
-				version.AppName,
-			),
-		),
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			clientCtx, err := client.GetClientTxContext(cmd)
-			if err != nil {
-				return err
-			}
-			denomId := strings.ToLower(strings.TrimSpace(args[0]))
-			nftId := strings.ToLower(strings.TrimSpace(args[1]))
-
-			nftMetadata := types.Metadata{}
-			nftName, err := cmd.Flags().GetString(FlagName)
-			if err != nil {
-				return err
-			}
-			nftName = strings.TrimSpace(nftName)
-
-			nftDescription, err := cmd.Flags().GetString(FlagDescription)
-			if err != nil {
-				return err
-			}
-			nftDescription = strings.TrimSpace(nftDescription)
-
-			nftMediaURI, err := cmd.Flags().GetString(FlagMediaURI)
-			if err != nil {
-				return err
-			}
-			nftMediaURI = strings.TrimSpace(nftMediaURI)
-
-			nftPreviewURI, err := cmd.Flags().GetString(FlagPreviewURI)
-			if err != nil {
-				return err
-			}
-			nftPreviewURI = strings.TrimSpace(nftPreviewURI)
-
-			if len(nftName) > 0 {
-				nftMetadata.Name = nftName
-			}
-			if len(nftDescription) > 0 {
-				nftMetadata.Description = nftDescription
-			}
-			if len(nftMediaURI) > 0 {
-				nftMetadata.MediaURI = nftMediaURI
-			}
-			if len(nftPreviewURI) > 0 {
-				nftMetadata.PreviewURI = nftPreviewURI
-			}
-			data, err := cmd.Flags().GetString(FlagData)
-			if err != nil {
-				return err
-			}
-
-			transferable, err := cmd.Flags().GetString(FlagTransferable)
-			if err != nil {
-				return err
-			}
-			if !(len(transferable) > 0 && (transferable == "no" || transferable == "yes" ||
-				transferable == types.DoNotModify)) {
-				return fmt.Errorf("invalid option for transferable flag , valid options are yes | no")
-			}
-			extensible, err := cmd.Flags().GetString(FlagExtensible)
-			if err != nil {
-				return err
-			}
-			if !(len(extensible) > 0 && (extensible == "no" || extensible == "yes" || extensible == types.DoNotModify)) {
-				return fmt.Errorf("invalid option for extensible flag , valid options are yes|no")
-			}
-			msg := types.NewMsgEditNFT(
-				nftId,
-				denomId,
-				nftMetadata,
-				data,
-				transferable,
-				extensible,
-				clientCtx.GetFromAddress().String(),
-			)
-			if err := msg.ValidateBasic(); err != nil {
-				return err
-			}
-			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
-		},
-	}
-	cmd.Flags().AddFlagSet(FsEditNFT)
 	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd

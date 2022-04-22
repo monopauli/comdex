@@ -119,7 +119,7 @@ func queryNFT(ctx sdk.Context, req abci.RequestQuery, k Keeper, legacyQuerierCdc
 	tokenID := strings.ToLower(strings.TrimSpace(params.NFTID))
 	nft, err := k.GetNFT(ctx, denom, tokenID)
 	if err != nil {
-		return nil, sdkerrors.Wrapf(types.ErrUnknownNFT, "invalid oNFT %s from collection %s", params.NFTID, params.Denom)
+		return nil, sdkerrors.Wrapf(types.ErrUnknownNFT, "invalid NFT %s from collection %s", params.NFTID, params.Denom)
 	}
 
 	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, nft)

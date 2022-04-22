@@ -3,7 +3,6 @@ package keeper
 import (
 	"fmt"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"strings"
 
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -89,8 +88,8 @@ func (k Keeper) TransferDenomOwner(ctx sdk.Context, id string, curOwner, newOwne
 
 func (k Keeper) MintNFT(
 	ctx sdk.Context, denomID, nftID string,
-	metadata types.Metadata, data string, transferable, extensible bool,
-	sender, recipient sdk.AccAddress) error {
+	metadata types.Metadata, data string, transferable, extensible, nsfw bool,
+	royaltyShare sdk.Dec, sender, recipient sdk.AccAddress) error {
 	if !k.HasDenomID(ctx, denomID) {
 		return sdkerrors.Wrapf(types.ErrInvalidDenom, "denomID %s not exists", denomID)
 	}
@@ -112,18 +111,19 @@ func (k Keeper) MintNFT(
 		extensible,
 		recipient,
 		ctx.BlockHeader().Time,
+		nsfw,
+		royaltyShare,
 	))
 	k.setOwner(ctx, denomID, nftID, recipient)
 	k.increaseSupply(ctx, denomID)
 	return nil
 }
 
-func (k Keeper) EditNFT(ctx sdk.Context, denomID, nftID string, metadata types.Metadata,
-	data, transferable, extensible string, owner sdk.AccAddress) error {
+func (k Keeper) EditNFT(ctx sdk.Context, denomID, nftID string, owner sdk.AccAddress) error {
 	if !k.HasDenomID(ctx, denomID) {
 		return sdkerrors.Wrapf(types.ErrInvalidDenom, "denomID %s not exists", denomID)
 	}
-	denom, err := k.GetDenom(ctx, denomID)
+	_, err := k.GetDenom(ctx, denomID)
 	if err != nil {
 		return err
 	}
@@ -131,60 +131,6 @@ func (k Keeper) EditNFT(ctx sdk.Context, denomID, nftID string, metadata types.M
 	nft, err := k.Authorize(ctx, denomID, nftID, owner)
 	if err != nil {
 		return err
-	}
-
-	if metadata.Name != types.DoNotModify {
-		nft.Metadata.Name = metadata.Name
-	}
-	if metadata.Description != types.DoNotModify {
-		nft.Metadata.Description = metadata.Description
-	}
-	if metadata.PreviewURI != types.DoNotModify {
-		nft.Metadata.PreviewURI = metadata.PreviewURI
-	}
-	if metadata.MediaURI != types.DoNotModify {
-		nft.Metadata.MediaURI = metadata.MediaURI
-	}
-	if data != types.DoNotModify {
-		nft.Data = data
-	}
-	if transferable != types.DoNotModify {
-		if denom.Creator != nft.Owner {
-			return sdkerrors.Wrapf(
-				types.ErrNotEditable,
-				"nft %s: transferability can be modified only when creator is the owner of nft.",
-				nftID,
-			)
-		}
-		switch transferable := strings.ToLower(transferable); transferable {
-		case "yes":
-			nft.Transferable = true
-		case "no":
-			nft.Transferable = false
-		default:
-			nft.Transferable = true
-		}
-	}
-	if len(extensible) > 0 && extensible != types.DoNotModify {
-		if denom.Creator != nft.Owner {
-			return sdkerrors.Wrapf(
-				types.ErrNotEditable,
-				"nft %s: extensibility can be modified only when creator is the owner of the nft.",
-				nftID,
-			)
-		}
-		switch extensible := strings.ToLower(extensible); extensible {
-		case "yes":
-			nft.Extensible = true
-		case "no":
-			nft.Extensible = false
-		default:
-			return sdkerrors.Wrapf(
-				types.ErrInvalidOption,
-				"%s is invalid option for extensible.",
-				extensible,
-			)
-		}
 	}
 
 	k.setNFT(ctx, denomID, nft)

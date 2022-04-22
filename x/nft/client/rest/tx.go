@@ -3,7 +3,7 @@ package rest
 import (
 	"fmt"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/gorilla/mux"
 
@@ -35,11 +35,6 @@ func registerTxRoutes(cliCtx client.Context, r *mux.Router, queryRoute string) {
 		fmt.Sprintf("/nft/nfts/mint"),
 		mintNFTHandlerFn(cliCtx),
 	).Methods("POST")
-
-	r.HandleFunc(
-		fmt.Sprintf("/nft/nfts/{%s}/{%s}", RestParamDenom, RestParamNFTID),
-		editNFTHandlerFn(cliCtx),
-	).Methods("PUT")
 
 	r.HandleFunc(
 		fmt.Sprintf("/nft/nfts/{%s}/{%s}/transfer", RestParamDenom, RestParamNFTID),
@@ -167,16 +162,18 @@ func mintNFTHandlerFn(cliCtx client.Context) http.HandlerFunc {
 		if len(req.PreviewURI) > 0 {
 			metadata.PreviewURI = req.PreviewURI
 		}
-		transferable := true
-		transferability := strings.ToLower(req.Transferable)
-		if len(transferability) > 0 && (transferability == "no" || transferability == "false") {
-			transferable = false
-		}
-		extensible := true
-		extensibility := strings.ToLower(req.Extensible)
-		if len(extensibility) > 0 && (extensibility == "no" || extensibility == "false") {
-			extensible = false
-		}
+		royaltyShare := sdk.NewDec(0)
+		// if len(req.RoyaltyShare) > 0 {
+		// 	var err error
+		// 	royaltyShare, err = sdk.NewDecFromStr(req.RoyaltyShare)
+		// 	if err != nil {
+		// 		rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+		// 		return
+		// 	}
+		// }
+		Transferable, _ := strconv.ParseBool(req.Transferable)
+		Extensible, _ := strconv.ParseBool(req.Extensible)
+		Nsfw, _ := strconv.ParseBool(req.Nsfw)
 
 		msg := types.NewMsgMintNFT(
 			req.Denom,
@@ -184,65 +181,10 @@ func mintNFTHandlerFn(cliCtx client.Context) http.HandlerFunc {
 			req.Recipient.String(),
 			metadata,
 			req.Data,
-			transferable,
-			extensible,
-		)
-		if err := msg.ValidateBasic(); err != nil {
-			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		tx.WriteGeneratedTxResponse(cliCtx, w, req.BaseReq, msg)
-	}
-}
-
-func editNFTHandlerFn(cliCtx client.Context) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req editNFTReq
-		if !rest.ReadRESTReq(w, r, cliCtx.LegacyAmino, &req) {
-			rest.WriteErrorResponse(w, http.StatusBadRequest, "failed to parse request")
-			return
-		}
-		baseReq := req.BaseReq.Sanitize()
-		if !baseReq.ValidateBasic(w) {
-			return
-		}
-
-		vars := mux.Vars(r)
-
-		metadata := types.Metadata{}
-		if len(req.Name) > 0 {
-			metadata.Name = req.Name
-		}
-		if len(req.Description) > 0 {
-			metadata.Description = req.Description
-		}
-		if len(req.MediaURI) > 0 {
-			metadata.MediaURI = req.MediaURI
-		}
-		if len(req.PreviewURI) > 0 {
-			metadata.PreviewURI = req.PreviewURI
-		}
-
-		transferable := strings.ToLower(req.Transferable)
-		if len(transferable) > 0 && !(transferable == "no" || transferable == "yes" ||
-			transferable == types.DoNotModify) {
-			rest.WriteErrorResponse(w, http.StatusBadRequest, "invalid option for transferable flag , valid options are yes,no")
-			return
-		}
-		extensible := strings.ToLower(req.Extensible)
-		if len(extensible) > 0 && !(extensible == "no" || extensible == "yes" ||
-			extensible == types.DoNotModify) {
-			rest.WriteErrorResponse(w, http.StatusBadRequest, "invalid option for extensible flag , valid options are yes,no")
-			return
-		}
-		msg := types.NewMsgEditNFT(
-			vars[RestParamNFTID],
-			vars[RestParamDenom],
-			metadata,
-			req.Data,
-			transferable,
-			extensible,
-			req.Sender.String(),
+			Transferable,
+			Extensible,
+			Nsfw,
+			royaltyShare,
 		)
 		if err := msg.ValidateBasic(); err != nil {
 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())

@@ -15,5 +15,7 @@ type NFT interface {
 	GetData() string
 	IsTransferable() bool
 	IsExtensible() bool
+	IsNSFW() bool
 	GetCreatedTime() time.Time
+	GetRoyaltyShare() sdk.Dec
 }

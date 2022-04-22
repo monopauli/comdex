@@ -12,12 +12,12 @@ func (k Keeper) GetNFT(ctx sdk.Context, denomID, nftID string) (nft exported.NFT
 
 	bz := store.Get(types.KeyNFT(denomID, nftID))
 	if bz == nil {
-		return nil, sdkerrors.Wrapf(types.ErrUnknownCollection, "not found oNFT: %s", denomID)
+		return nil, sdkerrors.Wrapf(types.ErrUnknownCollection, "not found NFT: %s", denomID)
 	}
 
-	var oNFT types.NFT
-	k.cdc.MustUnmarshal(bz, &oNFT)
-	return oNFT, nil
+	var NFT types.NFT
+	k.cdc.MustUnmarshal(bz, &NFT)
+	return NFT, nil
 }
 
 func (k Keeper) GetNFTs(ctx sdk.Context, denom string) (nfts []exported.NFT) {
@@ -26,9 +26,9 @@ func (k Keeper) GetNFTs(ctx sdk.Context, denom string) (nfts []exported.NFT) {
 	iterator := sdk.KVStorePrefixIterator(store, types.KeyNFT(denom, ""))
 	defer iterator.Close()
 	for ; iterator.Valid(); iterator.Next() {
-		var oNFT types.NFT
-		k.cdc.MustUnmarshal(iterator.Value(), &oNFT)
-		nfts = append(nfts, oNFT)
+		var NFT types.NFT
+		k.cdc.MustUnmarshal(iterator.Value(), &NFT)
+		nfts = append(nfts, NFT)
 	}
 	return nfts
 }
@@ -40,10 +40,10 @@ func (k Keeper) GetOwnerNFTs(ctx sdk.Context, denom string, owner string) (nfts 
 	defer iterator.Close()
 	var nftList []*types.NFT
 	for ; iterator.Valid(); iterator.Next() {
-		var oNFT types.NFT
-		k.cdc.MustUnmarshal(iterator.Value(), &oNFT)
-		if oNFT.Owner == owner {
-			nftList = append(nftList, &oNFT)
+		var NFT types.NFT
+		k.cdc.MustUnmarshal(iterator.Value(), &NFT)
+		if NFT.Owner == owner {
+			nftList = append(nftList, &NFT)
 		}
 	}
 	return nftList
