@@ -50,7 +50,6 @@ func (msg MsgCreateDenom) ValidateBasic() error {
 	}
 	name := strings.TrimSpace(msg.Name)
 	if len(name) > 0 && !utf8.ValidString(name) {
-		return sdkerrors.Wrap(ErrInvalidDenom, "denom name is invalid")
 		return sdkerrors.Wrap(ErrInvalidName, "denom name is invalid")
 	}
 	if err := ValidateName(name); err != nil {
@@ -107,7 +106,6 @@ func (msg MsgUpdateDenom) ValidateBasic() error {
 	}
 	name := msg.Name
 	if len(name) > 0 && !utf8.ValidString(name) {
-		return sdkerrors.Wrap(ErrInvalidDenom, "denom name is invalid")
 		return sdkerrors.Wrap(ErrInvalidName, "denom name is invalid")
 	}
 	if err := ValidateName(name); err != nil {

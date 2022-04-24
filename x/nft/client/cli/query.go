@@ -126,11 +126,11 @@ func GetCmdQueryOwner() *cobra.Command {
 
 func GetCmdQueryCollection() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "collection [denom-id]",
+		Use: "collections [denom-id]",
 		Long: strings.TrimSpace(
 			fmt.Sprintf(`Get all the NFTs from a given collection
 Example:
-$ %s query nft collection <denom-id>`, version.AppName)),
+$ %s query nft collections <denom-id>`, version.AppName)),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx := client.GetClientContextFromCmd(cmd)

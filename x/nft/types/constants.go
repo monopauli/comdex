@@ -10,5 +10,5 @@ const (
 	MaxURILen         = 256
 	DoNotModify       = "[do-not-modify]"
 	IDPrefix          = "nft"
-	DenomPrefix       = "comdexNft"
+	DenomPrefix       = "comdexnft"
 )
