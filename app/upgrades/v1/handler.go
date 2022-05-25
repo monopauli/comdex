@@ -3,13 +3,10 @@ package v1
 import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"github.com/comdex-official/comdex/x/incentives"
 	incentivesKeeper "github.com/comdex-official/comdex/x/incentives/keeper"
 	incentivestypes "github.com/comdex-official/comdex/x/incentives/types"
-	"github.com/comdex-official/comdex/x/liquidity"
 	liquidityKeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
 	liquiditytypes "github.com/comdex-official/comdex/x/liquidity/types"
-	"github.com/comdex-official/comdex/x/locking"
 	lockingKeeper "github.com/comdex-official/comdex/x/locking/keeper"
 	lockingtypes "github.com/comdex-official/comdex/x/locking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -63,10 +60,9 @@ func CreateUpgradeHandler(
 
 		//INIT for new modules
 
-		incentives.InitGenesis(ctx, incentivesKeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
-		locking.InitGenesis(ctx, lockingKeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
-		liquidity.InitGenesis(ctx, liquidityKeeper, liquiditytypes.GenesisState{
-			Params: liquiditytypes.DefaultParams()})
+		incentivesKeeper.SetParams(ctx, incentivestypes.DefaultParams())
+		lockingKeeper.SetParams(ctx, lockingtypes.DefaultParams())
+		liquidityKeeper.SetParams(ctx, liquiditytypes.DefaultParams())
 
 		// now update auth version back to v1, to run auth migration last
 		newVM[authtypes.ModuleName] = 1
