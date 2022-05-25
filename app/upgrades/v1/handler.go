@@ -4,13 +4,13 @@ import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/comdex-official/comdex/x/incentives"
-	incentiveskeeper "github.com/comdex-official/comdex/x/incentives/keeper"
+	incentivesKeeper "github.com/comdex-official/comdex/x/incentives/keeper"
 	incentivestypes "github.com/comdex-official/comdex/x/incentives/types"
 	"github.com/comdex-official/comdex/x/liquidity"
-	liquiditykeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
+	liquidityKeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
 	liquiditytypes "github.com/comdex-official/comdex/x/liquidity/types"
 	"github.com/comdex-official/comdex/x/locking"
-	lockingkeeper "github.com/comdex-official/comdex/x/locking/keeper"
+	lockingKeeper "github.com/comdex-official/comdex/x/locking/keeper"
 	lockingtypes "github.com/comdex-official/comdex/x/locking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -24,9 +24,9 @@ func CreateUpgradeHandler(
 	mm *module.Manager,
 	configurator module.Configurator,
 	wasmKeeper *wasmkeeper.Keeper,
-	liquidityKeeper *liquiditykeeper.Keeper,
-	incentivesKeeper *incentiveskeeper.Keeper,
-	lockingKeeper *lockingkeeper.Keeper,
+	liquidityKeeper liquidityKeeper.Keeper,
+	incentivesKeeper incentivesKeeper.Keeper,
+	lockingKeeper lockingKeeper.Keeper,
 
 ) upgradetypes.UpgradeHandler {
 	return func(ctx sdk.Context, plan upgradetypes.Plan, vm module.VersionMap) (module.VersionMap, error) {
@@ -63,9 +63,9 @@ func CreateUpgradeHandler(
 
 		//INIT for new modules
 
-		incentives.InitGenesis(ctx, *incentivesKeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
-		locking.InitGenesis(ctx, *lockingKeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
-		liquidity.InitGenesis(ctx, *liquidityKeeper, liquiditytypes.GenesisState{
+		incentives.InitGenesis(ctx, incentivesKeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
+		locking.InitGenesis(ctx, lockingKeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
+		liquidity.InitGenesis(ctx, liquidityKeeper, liquiditytypes.GenesisState{
 			Params: liquiditytypes.DefaultParams()})
 
 		// now update auth version back to v1, to run auth migration last

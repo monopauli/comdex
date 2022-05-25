@@ -847,8 +847,8 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 func (app *App) registerUpgradeHandlers() {
 
 	app.upgradeKeeper.SetUpgradeHandler(v1.Name, v1.CreateUpgradeHandler(app.mm,
-		app.configurator, &app.wasmKeeper, &app.liquidityKeeper,
-		&app.incentivesKeeper, &app.lockingKeeper))
+		app.configurator, &app.wasmKeeper, app.liquidityKeeper,
+		app.incentivesKeeper, app.lockingKeeper))
 
 	upgradeInfo, err := app.upgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
