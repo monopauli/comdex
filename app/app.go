@@ -856,8 +856,7 @@ func (app *App) registerUpgradeHandlers() {
 	}
 	if upgradeInfo.Name == v1.Name && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		storeUpgrades := storetypes.StoreUpgrades{
-			Added:   []string{authz.ModuleName, wasm.ModuleName, lockingtypes.ModuleName, incentivestypes.ModuleName, liquiditytypes.ModuleName},
-			Deleted: []string{"liquidity"},
+			Added: []string{authz.ModuleName, wasm.ModuleName, lockingtypes.ModuleName, incentivestypes.ModuleName, liquiditytypes.ModuleName},
 		}
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))

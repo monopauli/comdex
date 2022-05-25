@@ -10,9 +10,9 @@ import (
 // InitGenesis initializes the capability module's state from a provided genesis
 // state.
 func InitGenesis(ctx sdk.Context, k keeper.Keeper, genState types.GenesisState) {
-	if err := genState.Validate(); err != nil {
+	/*if err := genState.Validate(); err != nil {
 		panic(err)
-	}
+	}*/
 	k.SetParams(ctx, genState.Params)
 	k.SetLastPairId(ctx, genState.LastPairId)
 	k.SetLastPoolId(ctx, genState.LastPoolId)

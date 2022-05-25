@@ -48,7 +48,6 @@ func CreateUpgradeHandler(
 		delete(fromVM, liquiditytypes.ModuleName)
 		delete(fromVM, incentivestypes.ModuleName)
 		delete(fromVM, lockingtypes.ModuleName)
-		delete(fromVM, "liquidity")
 
 		newVM, err := mm.RunMigrations(ctx, configurator, fromVM)
 		if err != nil {
