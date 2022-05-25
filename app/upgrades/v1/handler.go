@@ -23,10 +23,10 @@ import (
 func CreateUpgradeHandler(
 	mm *module.Manager,
 	configurator module.Configurator,
-	wasmkeeper *wasmkeeper.Keeper,
-	liquiditykeeper *liquiditykeeper.Keeper,
-	incentiveskeeper *incentiveskeeper.Keeper,
-	lockingkeeper *lockingkeeper.Keeper,
+	wasmKeeper *wasmkeeper.Keeper,
+	liquidityKeeper *liquiditykeeper.Keeper,
+	incentivesKeeper *incentiveskeeper.Keeper,
+	lockingKeeper *lockingkeeper.Keeper,
 
 ) upgradetypes.UpgradeHandler {
 	return func(ctx sdk.Context, plan upgradetypes.Plan, vm module.VersionMap) (module.VersionMap, error) {
@@ -57,15 +57,15 @@ func CreateUpgradeHandler(
 			return nil, err
 		}
 
-		params := wasmkeeper.GetParams(ctx)
+		params := wasmKeeper.GetParams(ctx)
 		params.CodeUploadAccess = wasmtypes.AllowNobody
-		wasmkeeper.SetParams(ctx, params)
+		wasmKeeper.SetParams(ctx, params)
 
 		//INIT for new modules
 
-		incentives.InitGenesis(ctx, *incentiveskeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
-		locking.InitGenesis(ctx, *lockingkeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
-		liquidity.InitGenesis(ctx, *liquiditykeeper, liquiditytypes.GenesisState{
+		incentives.InitGenesis(ctx, *incentivesKeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
+		locking.InitGenesis(ctx, *lockingKeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
+		liquidity.InitGenesis(ctx, *liquidityKeeper, liquiditytypes.GenesisState{
 			Params: liquiditytypes.DefaultParams()})
 
 		// now update auth version back to v1, to run auth migration last
