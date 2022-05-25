@@ -58,12 +58,6 @@ func CreateUpgradeHandler(
 		params.CodeUploadAccess = wasmtypes.AllowNobody
 		wasmKeeper.SetParams(ctx, params)
 
-		//INIT for new modules
-
-		incentivesKeeper.SetParams(ctx, incentivestypes.DefaultParams())
-		lockingKeeper.SetParams(ctx, lockingtypes.DefaultParams())
-		liquidityKeeper.SetParams(ctx, liquiditytypes.DefaultParams())
-
 		// now update auth version back to v1, to run auth migration last
 		newVM[authtypes.ModuleName] = 1
 
