@@ -27,7 +27,6 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/vesting"
-	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/cosmos/cosmos-sdk/x/authz"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
@@ -77,7 +76,6 @@ import (
 	ibcclient "github.com/cosmos/ibc-go/v2/modules/core/02-client"
 	ibcporttypes "github.com/cosmos/ibc-go/v2/modules/core/05-port/types"
 	ibchost "github.com/cosmos/ibc-go/v2/modules/core/24-host"
-	ibctypes "github.com/cosmos/ibc-go/v2/modules/core/24-host"
 	ibckeeper "github.com/cosmos/ibc-go/v2/modules/core/keeper"
 	"github.com/spf13/cast"
 	abcitypes "github.com/tendermint/tendermint/abci/types"
@@ -113,6 +111,7 @@ import (
 	lockingkeeper "github.com/comdex-official/comdex/x/locking/keeper"
 	lockingtypes "github.com/comdex-official/comdex/x/locking/types"
 
+	v1 "github.com/comdex-official/comdex/app/upgrades/v1"
 	"github.com/comdex-official/comdex/x/incentives"
 	incentiveskeeper "github.com/comdex-official/comdex/x/incentives/keeper"
 	incentivestypes "github.com/comdex-official/comdex/x/incentives/types"
@@ -846,46 +845,20 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 	}
 }
 func (app *App) registerUpgradeHandlers() {
-	app.upgradeKeeper.SetUpgradeHandler("v0.1.2", func(ctx sdk.Context, plan upgradetypes.Plan, _ module.VersionMap) (module.VersionMap, error) {
-		// 1st-time running in-store migrations, using 1 as fromVersion to
-		// avoid running InitGenesis.
-		fromVM := map[string]uint64{
-			authtypes.ModuleName:        auth.AppModule{}.ConsensusVersion(),
-			banktypes.ModuleName:        bank.AppModule{}.ConsensusVersion(),
-			capabilitytypes.ModuleName:  capability.AppModule{}.ConsensusVersion(),
-			crisistypes.ModuleName:      crisis.AppModule{}.ConsensusVersion(),
-			distrtypes.ModuleName:       distr.AppModule{}.ConsensusVersion(),
-			evidencetypes.ModuleName:    evidence.AppModule{}.ConsensusVersion(),
-			govtypes.ModuleName:         gov.AppModule{}.ConsensusVersion(),
-			minttypes.ModuleName:        mint.AppModule{}.ConsensusVersion(),
-			paramstypes.ModuleName:      params.AppModule{}.ConsensusVersion(),
-			slashingtypes.ModuleName:    slashing.AppModule{}.ConsensusVersion(),
-			stakingtypes.ModuleName:     staking.AppModule{}.ConsensusVersion(),
-			upgradetypes.ModuleName:     upgrade.AppModule{}.ConsensusVersion(),
-			vestingtypes.ModuleName:     vesting.AppModule{}.ConsensusVersion(),
-			ibctypes.ModuleName:         ibc.AppModule{}.ConsensusVersion(),
-			genutiltypes.ModuleName:     genutil.AppModule{}.ConsensusVersion(),
-			ibctransfertypes.ModuleName: ibctransfer.AppModule{}.ConsensusVersion(),
-			assettypes.ModuleName:       asset.AppModule{}.ConsensusVersion(),
-			vaulttypes.ModuleName:       vault.AppModule{}.ConsensusVersion(),
-		}
-		newVM, err := app.mm.RunMigrations(ctx, app.configurator, fromVM)
-		if err != nil {
-			return newVM, err
-		}
-		//wasm
-		wasmParams := app.wasmKeeper.GetParams(ctx)
-		wasmParams.CodeUploadAccess = wasmtypes.AllowNobody
-		app.wasmKeeper.SetParams(ctx, wasmParams)
-		return newVM, err
-	})
+
+	app.upgradeKeeper.SetUpgradeHandler(v1.Name, v1.CreateUpgradeHandler(app.mm,
+		app.configurator, &app.wasmKeeper, &app.liquidityKeeper,
+		&app.incentivesKeeper, &app.lockingKeeper))
 
 	upgradeInfo, err := app.upgradeKeeper.ReadUpgradeInfoFromDisk()
 	if err != nil {
 		panic(err)
 	}
-	if upgradeInfo.Name == "v0.1.2" && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
-		storeUpgrades := storetypes.StoreUpgrades{}
+	if upgradeInfo.Name == v1.Name && !app.upgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		storeUpgrades := storetypes.StoreUpgrades{
+			Added:   []string{authz.ModuleName, wasm.ModuleName, lockingtypes.ModuleName, incentivestypes.ModuleName, liquiditytypes.ModuleName},
+			Deleted: []string{"liquidity"},
+		}
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}
