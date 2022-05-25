@@ -3,11 +3,13 @@ package v1
 import (
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/comdex-official/comdex/x/incentives"
 	incentiveskeeper "github.com/comdex-official/comdex/x/incentives/keeper"
 	incentivestypes "github.com/comdex-official/comdex/x/incentives/types"
 	"github.com/comdex-official/comdex/x/liquidity"
 	liquiditykeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
 	liquiditytypes "github.com/comdex-official/comdex/x/liquidity/types"
+	"github.com/comdex-official/comdex/x/locking"
 	lockingkeeper "github.com/comdex-official/comdex/x/locking/keeper"
 	lockingtypes "github.com/comdex-official/comdex/x/locking/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -61,34 +63,10 @@ func CreateUpgradeHandler(
 
 		//INIT for new modules
 
-		//incentives.InitGenesis(ctx, *incentiveskeeper, incentivestypes.GenesisState{Params: })
-		//locking.InitGenesis(ctx, *lockingkeeper,lockingtypes.GenesisState{Params: })
+		incentives.InitGenesis(ctx, *incentiveskeeper, incentivestypes.GenesisState{Params: incentivestypes.DefaultParams()})
+		locking.InitGenesis(ctx, *lockingkeeper, lockingtypes.GenesisState{Params: lockingtypes.DefaultParams()})
 		liquidity.InitGenesis(ctx, *liquiditykeeper, liquiditytypes.GenesisState{
-			Params: liquiditytypes.Params{
-				BatchSize:                liquiditytypes.DefaultBatchSize,
-				TickPrecision:            liquiditytypes.DefaultTickPrecision,
-				FeeCollectorAddress:      liquiditytypes.DefaultFeeCollectorAddress.String(),
-				SwapFeeCollectorAddress:  liquiditytypes.DefaultSwapFeeCollectorAddress.String(),
-				MinInitialPoolCoinSupply: liquiditytypes.DefaultMinInitialPoolCoinSupply,
-				PairCreationFee:          liquiditytypes.DefaultPairCreationFee,
-				PoolCreationFee:          liquiditytypes.DefaultPoolCreationFee,
-				MinInitialDepositAmount:  liquiditytypes.DefaultMinInitialDepositAmount,
-				MaxPriceLimitRatio:       liquiditytypes.DefaultMaxPriceLimitRatio,
-				MaxOrderLifespan:         liquiditytypes.DefaultMaxOrderLifespan,
-				SwapFeeRate:              liquiditytypes.DefaultSwapFeeRate,
-				WithdrawFeeRate:          liquiditytypes.DefaultWithdrawFeeRate,
-				DepositExtraGas:          liquiditytypes.DefaultDepositExtraGas,
-				WithdrawExtraGas:         liquiditytypes.DefaultWithdrawExtraGas,
-				OrderExtraGas:            liquiditytypes.DefaultOrderExtraGas,
-			},
-			LastPairId:       0,
-			LastPoolId:       0,
-			Pairs:            nil,
-			Pools:            nil,
-			DepositRequests:  nil,
-			WithdrawRequests: nil,
-			Orders:           nil,
-		})
+			Params: liquiditytypes.DefaultParams()})
 
 		// now update auth version back to v1, to run auth migration last
 		newVM[authtypes.ModuleName] = 1
