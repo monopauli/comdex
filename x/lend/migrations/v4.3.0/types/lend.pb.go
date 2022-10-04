@@ -29,7 +29,7 @@ var _ = time.Kitchen
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-type LendAsset struct {
+type LendAssetOld struct {
 	ID                  uint64                                  `protobuf:"varint,1,opt,name=lending_id,json=lendingId,proto3" json:"lending_id,omitempty" yaml:"lending_id"`
 	AssetID             uint64                                  `protobuf:"varint,2,opt,name=asset_id,json=assetId,proto3" json:"asset_id,omitempty" yaml:"asset_id"`
 	PoolID              uint64                                  `protobuf:"varint,3,opt,name=pool_id,json=poolId,proto3" json:"pool_id,omitempty" yaml:"pool_id"`
@@ -45,16 +45,16 @@ type LendAsset struct {
 	CPoolName           string                                  `protobuf:"bytes,13,opt,name=cpool_name,json=cpoolName,proto3" json:"cpool_name,omitempty" yaml:"cpool_name"`
 }
 
-func (m *LendAsset) Reset()         { *m = LendAsset{} }
-func (m *LendAsset) String() string { return proto.CompactTextString(m) }
-func (*LendAsset) ProtoMessage()    {}
-func (*LendAsset) Descriptor() ([]byte, []int) {
+func (m *LendAssetOld) Reset()         { *m = LendAssetOld{} }
+func (m *LendAssetOld) String() string { return proto.CompactTextString(m) }
+func (*LendAssetOld) ProtoMessage()    {}
+func (*LendAssetOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_fb9b204d4b068adb, []int{0}
 }
-func (m *LendAsset) XXX_Unmarshal(b []byte) error {
+func (m *LendAssetOld) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *LendAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *LendAssetOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_LendAsset.Marshal(b, m, deterministic)
 	} else {
@@ -66,82 +66,82 @@ func (m *LendAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *LendAsset) XXX_Merge(src proto.Message) {
+func (m *LendAssetOld) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_LendAsset.Merge(m, src)
 }
-func (m *LendAsset) XXX_Size() int {
+func (m *LendAssetOld) XXX_Size() int {
 	return m.Size()
 }
-func (m *LendAsset) XXX_DiscardUnknown() {
+func (m *LendAssetOld) XXX_DiscardUnknown() {
 	xxx_messageInfo_LendAsset.DiscardUnknown(m)
 }
 
 var xxx_messageInfo_LendAsset proto.InternalMessageInfo
 
-func (m *LendAsset) GetID() uint64 {
+func (m *LendAssetOld) GetID() uint64 {
 	if m != nil {
 		return m.ID
 	}
 	return 0
 }
 
-func (m *LendAsset) GetAssetID() uint64 {
+func (m *LendAssetOld) GetAssetID() uint64 {
 	if m != nil {
 		return m.AssetID
 	}
 	return 0
 }
 
-func (m *LendAsset) GetPoolID() uint64 {
+func (m *LendAssetOld) GetPoolID() uint64 {
 	if m != nil {
 		return m.PoolID
 	}
 	return 0
 }
 
-func (m *LendAsset) GetOwner() string {
+func (m *LendAssetOld) GetOwner() string {
 	if m != nil {
 		return m.Owner
 	}
 	return ""
 }
 
-func (m *LendAsset) GetAmountIn() github_com_cosmos_cosmos_sdk_types.Coin {
+func (m *LendAssetOld) GetAmountIn() github_com_cosmos_cosmos_sdk_types.Coin {
 	if m != nil {
 		return m.AmountIn
 	}
 	return github_com_cosmos_cosmos_sdk_types.Coin{}
 }
 
-func (m *LendAsset) GetLendingTime() time.Time {
+func (m *LendAssetOld) GetLendingTime() time.Time {
 	if m != nil {
 		return m.LendingTime
 	}
 	return time.Time{}
 }
 
-func (m *LendAsset) GetAppID() uint64 {
+func (m *LendAssetOld) GetAppID() uint64 {
 	if m != nil {
 		return m.AppID
 	}
 	return 0
 }
 
-func (m *LendAsset) GetLastInteractionTime() time.Time {
+func (m *LendAssetOld) GetLastInteractionTime() time.Time {
 	if m != nil {
 		return m.LastInteractionTime
 	}
 	return time.Time{}
 }
 
-func (m *LendAsset) GetCPoolName() string {
+func (m *LendAssetOld) GetCPoolName() string {
 	if m != nil {
 		return m.CPoolName
 	}
 	return ""
 }
 
-type BorrowAsset struct {
+type BorrowAssetOld struct {
 	ID                   uint64                                  `protobuf:"varint,1,opt,name=borrowing_id,json=borrowingId,proto3" json:"borrowing_id,omitempty" yaml:"borrowing_id"`
 	LendingID            uint64                                  `protobuf:"varint,2,opt,name=lending_id,json=lendingId,proto3" json:"lending_id,omitempty" yaml:"lending_id"`
 	IsStableBorrow       bool                                    `protobuf:"varint,3,opt,name=is_stable_borrow,json=isStableBorrow,proto3" json:"is_stable_borrow,omitempty" yaml:"is_stable_borrow"`
@@ -159,16 +159,16 @@ type BorrowAsset struct {
 	CPoolName            string                                  `protobuf:"bytes,15,opt,name=cpool_name,json=cpoolName,proto3" json:"cpool_name,omitempty" yaml:"cpool_name"`
 }
 
-func (m *BorrowAsset) Reset()         { *m = BorrowAsset{} }
-func (m *BorrowAsset) String() string { return proto.CompactTextString(m) }
-func (*BorrowAsset) ProtoMessage()    {}
-func (*BorrowAsset) Descriptor() ([]byte, []int) {
+func (m *BorrowAssetOld) Reset()         { *m = BorrowAssetOld{} }
+func (m *BorrowAssetOld) String() string { return proto.CompactTextString(m) }
+func (*BorrowAssetOld) ProtoMessage()    {}
+func (*BorrowAssetOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_fb9b204d4b068adb, []int{1}
 }
-func (m *BorrowAsset) XXX_Unmarshal(b []byte) error {
+func (m *BorrowAssetOld) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *BorrowAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *BorrowAssetOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_BorrowAsset.Marshal(b, m, deterministic)
 	} else {
@@ -180,82 +180,82 @@ func (m *BorrowAsset) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return b[:n], nil
 	}
 }
-func (m *BorrowAsset) XXX_Merge(src proto.Message) {
+func (m *BorrowAssetOld) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_BorrowAsset.Merge(m, src)
 }
-func (m *BorrowAsset) XXX_Size() int {
+func (m *BorrowAssetOld) XXX_Size() int {
 	return m.Size()
 }
-func (m *BorrowAsset) XXX_DiscardUnknown() {
+func (m *BorrowAssetOld) XXX_DiscardUnknown() {
 	xxx_messageInfo_BorrowAsset.DiscardUnknown(m)
 }
 
 var xxx_messageInfo_BorrowAsset proto.InternalMessageInfo
 
-func (m *BorrowAsset) GetID() uint64 {
+func (m *BorrowAssetOld) GetID() uint64 {
 	if m != nil {
 		return m.ID
 	}
 	return 0
 }
 
-func (m *BorrowAsset) GetLendingID() uint64 {
+func (m *BorrowAssetOld) GetLendingID() uint64 {
 	if m != nil {
 		return m.LendingID
 	}
 	return 0
 }
 
-func (m *BorrowAsset) GetIsStableBorrow() bool {
+func (m *BorrowAssetOld) GetIsStableBorrow() bool {
 	if m != nil {
 		return m.IsStableBorrow
 	}
 	return false
 }
 
-func (m *BorrowAsset) GetPairID() uint64 {
+func (m *BorrowAssetOld) GetPairID() uint64 {
 	if m != nil {
 		return m.PairID
 	}
 	return 0
 }
 
-func (m *BorrowAsset) GetAmountIn() github_com_cosmos_cosmos_sdk_types.Coin {
+func (m *BorrowAssetOld) GetAmountIn() github_com_cosmos_cosmos_sdk_types.Coin {
 	if m != nil {
 		return m.AmountIn
 	}
 	return github_com_cosmos_cosmos_sdk_types.Coin{}
 }
 
-func (m *BorrowAsset) GetAmountOut() github_com_cosmos_cosmos_sdk_types.Coin {
+func (m *BorrowAssetOld) GetAmountOut() github_com_cosmos_cosmos_sdk_types.Coin {
 	if m != nil {
 		return m.AmountOut
 	}
 	return github_com_cosmos_cosmos_sdk_types.Coin{}
 }
 
-func (m *BorrowAsset) GetBridgedAssetAmount() github_com_cosmos_cosmos_sdk_types.Coin {
+func (m *BorrowAssetOld) GetBridgedAssetAmount() github_com_cosmos_cosmos_sdk_types.Coin {
 	if m != nil {
 		return m.BridgedAssetAmount
 	}
 	return github_com_cosmos_cosmos_sdk_types.Coin{}
 }
 
-func (m *BorrowAsset) GetBorrowingTime() time.Time {
+func (m *BorrowAssetOld) GetBorrowingTime() time.Time {
 	if m != nil {
 		return m.BorrowingTime
 	}
 	return time.Time{}
 }
 
-func (m *BorrowAsset) GetLastInteractionTime() time.Time {
+func (m *BorrowAssetOld) GetLastInteractionTime() time.Time {
 	if m != nil {
 		return m.LastInteractionTime
 	}
 	return time.Time{}
 }
 
-func (m *BorrowAsset) GetCPoolName() string {
+func (m *BorrowAssetOld) GetCPoolName() string {
 	if m != nil {
 		return m.CPoolName
 	}
@@ -263,8 +263,8 @@ func (m *BorrowAsset) GetCPoolName() string {
 }
 
 func init() {
-	proto.RegisterType((*LendAsset)(nil), "comdex.lend.v1beta1.LendAsset")
-	proto.RegisterType((*BorrowAsset)(nil), "comdex.lend.v1beta1.BorrowAsset")
+	proto.RegisterType((*LendAssetOld)(nil), "comdex.lend.v1beta1.LendAsset")
+	proto.RegisterType((*BorrowAssetOld)(nil), "comdex.lend.v1beta1.BorrowAsset")
 }
 
 func init() { proto.RegisterFile("comdex/lend/v1beta1/lend.proto", fileDescriptor_fb9b204d4b068adb) }
@@ -338,7 +338,7 @@ var fileDescriptor_fb9b204d4b068adb = []byte{
 	0x00,
 }
 
-func (m *LendAsset) Marshal() (dAtA []byte, err error) {
+func (m *LendAssetOld) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -348,12 +348,12 @@ func (m *LendAsset) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *LendAsset) MarshalTo(dAtA []byte) (int, error) {
+func (m *LendAssetOld) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *LendAsset) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LendAssetOld) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -461,7 +461,7 @@ func (m *LendAsset) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *BorrowAsset) Marshal() (dAtA []byte, err error) {
+func (m *BorrowAssetOld) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -471,12 +471,12 @@ func (m *BorrowAsset) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *BorrowAsset) MarshalTo(dAtA []byte) (int, error) {
+func (m *BorrowAssetOld) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *BorrowAsset) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *BorrowAssetOld) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -623,7 +623,7 @@ func encodeVarintTest(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *LendAsset) Size() (n int) {
+func (m *LendAssetOld) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -666,7 +666,7 @@ func (m *LendAsset) Size() (n int) {
 	return n
 }
 
-func (m *BorrowAsset) Size() (n int) {
+func (m *BorrowAssetOld) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -717,7 +717,7 @@ func sovTest(x uint64) (n int) {
 func sozTest(x uint64) (n int) {
 	return sovTest(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *LendAsset) Unmarshal(dAtA []byte) error {
+func (m *LendAssetOld) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1142,7 +1142,7 @@ func (m *LendAsset) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *BorrowAsset) Unmarshal(dAtA []byte) error {
+func (m *BorrowAssetOld) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {

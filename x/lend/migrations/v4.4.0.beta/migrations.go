@@ -48,7 +48,7 @@ func migrateValueLend(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (newK
 	// convert oldVal into lend type of previous version
 	// use oldVal to create new lend of updated struct
 
-	var lend v4_3_0types.LendAsset
+	var lend v4_3_0types.LendAssetOld
 	cdc.MustUnmarshal(oldVal, &lend)
 
 	newLend := lendtypes.LendAsset{
@@ -60,7 +60,7 @@ func migrateValueLend(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (newK
 		LendingTime:         lend.LendingTime,
 		AvailableToBorrow:   lend.AvailableToBorrow,
 		AppID:               lend.AppID,
-		GlobalIndex:         sdk.Dec{},
+		GlobalIndex:         lend.GlobalIndex,
 		LastInteractionTime: lend.LastInteractionTime,
 		CPoolName:           lend.CPoolName,
 	}
@@ -93,7 +93,7 @@ func migrateValueBorrow(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (ne
 	// convert oldVal into borrow type of previous version
 	// use oldVal to create new borrow of updated struct
 
-	var borrow v4_3_0types.BorrowAsset
+	var borrow v4_3_0types.BorrowAssetOld
 	cdc.MustUnmarshal(oldVal, &borrow)
 
 	newBorrow := lendtypes.BorrowAsset{
