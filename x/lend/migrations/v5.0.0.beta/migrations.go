@@ -1,7 +1,7 @@
 package v5_0_0_beta
 
 import (
-	v4_3_0types "github.com/comdex-official/comdex/x/lend/migrations/v4.3.0/types"
+	v4_3_0types "github.com/comdex-official/comdex/x/lend/migrations/v5.0.0.beta/types"
 	lendtypes "github.com/comdex-official/comdex/x/lend/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
