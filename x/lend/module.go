@@ -142,7 +142,7 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServer(am.keeper))
 	migrator := keeper.NewMigrator(am.keeper)
 
-	if err := cfg.RegisterMigration(types.ModuleName, 4, migrator.MigrateTo4_4_0beta); err != nil {
+	if err := cfg.RegisterMigration(types.ModuleName, 5, migrator.MigrateTo4_4_0beta); err != nil {
 		panic(fmt.Errorf("failed to migrate %s to v4.4.0beta: %w", types.ModuleName, err))
 	}
 }
