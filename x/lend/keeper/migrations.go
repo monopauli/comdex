@@ -2,7 +2,7 @@ package keeper
 
 import (
 	auctionkeeper "github.com/comdex-official/comdex/x/auction/keeper"
-	v4_4_0_beta "github.com/comdex-official/comdex/x/lend/migrations/v4.4.0.beta"
+	v5_0_0_beta "github.com/comdex-official/comdex/x/lend/migrations/v5.0.0.beta"
 	liquidationkeeper "github.com/comdex-official/comdex/x/liquidation/keeper"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -19,7 +19,7 @@ func NewMigrator(keeper Keeper) Migrator {
 	return Migrator{keeper: keeper}
 }
 
-func (m Migrator) MigrateTo4_4_0beta(ctx sdk.Context) error {
+func (m Migrator) MigrateTo5_0_0beta(ctx sdk.Context) error {
 
-	return v4_4_0_beta.MigrateStore(ctx, m.keeper.storeKey, m.keeper.cdc)
+	return v5_0_0_beta.MigrateStore(ctx, m.keeper.storeKey, m.keeper.cdc)
 }
