@@ -1,7 +1,7 @@
 package v5_0_0_beta
 
 import (
-	v4_3_0types "github.com/comdex-official/comdex/x/lend/migrations/v5.0.0.beta/types"
+	v4types "github.com/comdex-official/comdex/x/lend/migrations/v5.0.0.beta/types"
 	lendtypes "github.com/comdex-official/comdex/x/lend/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
@@ -46,7 +46,7 @@ func migrateValueLend(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
 	// convert oldVal into lend type of previous version
 	// use oldVal to create new lend of updated struct
 
-	var lend v4_3_0types.LendAsset
+	var lend v4types.LendAsset
 	cdc.MustUnmarshal(oldVal, &lend)
 
 	newLend := lendtypes.LendAsset{
