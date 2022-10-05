@@ -22,7 +22,6 @@ func MigrateStore(ctx sdk.Context, storeKey storetypes.StoreKey, cdc codec.Binar
 
 	return nil
 }
-
 func migrateValuesLend(store sdk.KVStore, cdc codec.BinaryCodec) error {
 
 	lendIDKey := lendtypes.LendsKey
@@ -32,17 +31,16 @@ func migrateValuesLend(store sdk.KVStore, cdc codec.BinaryCodec) error {
 
 	for _, ID := range usersLendMap.LendIDs {
 		key := append(lendtypes.LendUserPrefix, sdk.Uint64ToBigEndian(ID)...)
-		oldKey := store.Get(key)
-		oldVal := store.Get(oldKey)
+		oldVal := store.Get(key)
 
-		newKey, newVal := migrateValueLend(cdc, oldKey, oldVal)
-		store.Set(newKey, newVal)
-		store.Delete(oldKey) // Delete old key, value
+		newVal := migrateValueLend(cdc, oldVal)
+		store.Delete(key) // Delete old key, value
+		store.Set(key, newVal)
 	}
 	return nil
 }
 
-func migrateValueLend(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (newKey []byte, newVal []byte) {
+func migrateValueLend(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
 
 	// convert oldVal into lend type of previous version
 	// use oldVal to create new lend of updated struct
@@ -65,7 +63,7 @@ func migrateValueLend(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (newK
 	}
 
 	newVal = cdc.MustMarshal(&newLend)
-	return oldKey, newVal
+	return newVal
 }
 
 func migrateValuesBorrow(store sdk.KVStore, cdc codec.BinaryCodec) error {
@@ -77,17 +75,16 @@ func migrateValuesBorrow(store sdk.KVStore, cdc codec.BinaryCodec) error {
 
 	for _, ID := range usersBorrowMap.BorrowIDs {
 		key := append(lendtypes.BorrowPairKeyPrefix, sdk.Uint64ToBigEndian(ID)...)
-		oldKey := store.Get(key)
-		oldVal := store.Get(oldKey)
+		oldVal := store.Get(key)
 
-		newKey, newVal := migrateValueBorrow(cdc, oldKey, oldVal)
-		store.Set(newKey, newVal)
-		store.Delete(oldKey) // Delete old key, value
+		newVal := migrateValueBorrow(cdc, oldVal)
+		store.Delete(key) // Delete old key, value
+		store.Set(key, newVal)
 	}
 	return nil
 }
 
-func migrateValueBorrow(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (newKey []byte, newVal []byte) {
+func migrateValueBorrow(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
 
 	// convert oldVal into borrow type of previous version
 	// use oldVal to create new borrow of updated struct
@@ -113,5 +110,5 @@ func migrateValueBorrow(cdc codec.BinaryCodec, oldKey []byte, oldVal []byte) (ne
 	}
 
 	newVal = cdc.MustMarshal(&newBorrow)
-	return oldKey, newVal
+	return newVal
 }
