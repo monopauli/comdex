@@ -1,0 +1,23 @@
+syntax = "proto3";
+package comdex.claim.v1beta1;
+
+import "gogoproto/gogo.proto";
+import "comdex/claim/v1beta1/claim.proto";
+import "comdex/claim/v1beta1/params.proto";
+
+option go_package = "github.com/comdex-official/comdex/x/claim/types";
+
+// GenesisState defines the claim module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.moretags) = "yaml:\"params\"",
+    (gogoproto.nullable) = false
+  ];
+
+  // list of claim records, one for every airdrop recipient
+  repeated ClaimRecord claim_records = 2 [
+    (gogoproto.moretags) = "yaml:\"claim_records\"",
+    (gogoproto.nullable) = false
+  ];
+}
