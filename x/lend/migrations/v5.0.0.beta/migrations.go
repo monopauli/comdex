@@ -1,12 +1,12 @@
 package v5_0_0_beta
 
 import (
+	"fmt"
 	v4types "github.com/comdex-official/comdex/x/lend/migrations/v5.0.0.beta/types"
 	lendtypes "github.com/comdex-official/comdex/x/lend/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	protobuftypes "github.com/gogo/protobuf/types"
 )
 
 //MigrationHandler codes goes here
@@ -26,19 +26,22 @@ func MigrateStore(ctx sdk.Context, storeKey storetypes.StoreKey, cdc codec.Binar
 }
 func migrateValuesLend(store sdk.KVStore, cdc codec.BinaryCodec) error {
 
-	keyCounter := lendtypes.LendCounterIDPrefix
-	value := store.Get(keyCounter)
-	var counter protobuftypes.UInt64Value
-	cdc.MustUnmarshal(value, &counter)
+	//keyCounter := lendtypes.LendCounterIDPrefix
+	//value := store.Get(keyCounter)
+	//var counter protobuftypes.UInt64Value
+	//cdc.MustUnmarshal(value, &counter)
 
-	for ID := uint64(1); ID <= counter.GetValue(); ID++ {
-		key := append(lendtypes.LendUserPrefix, sdk.Uint64ToBigEndian(ID)...)
-		oldVal := store.Get(key)
-
-		newVal := migrateValueLend(cdc, oldVal)
-		store.Delete(key) // Delete old key, value
-		store.Set(key, newVal)
-	}
+	//for ID := uint64(1); ID <= counter.GetValue(); ID++ {
+	key := lendtypes.LendUserKey(1)
+	oldVal := store.Get(key)
+	fmt.Println("old...............")
+	fmt.Println(oldVal)
+	newVal := migrateValueLend(cdc, oldVal)
+	fmt.Println("newval/////////")
+	fmt.Println(newVal)
+	//store.Delete(key) // Delete old key, value
+	store.Set(key, newVal)
+	//}
 	return nil
 }
 

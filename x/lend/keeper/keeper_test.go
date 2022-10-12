@@ -23,6 +23,7 @@ type KeeperTestSuite struct {
 	keeper    keeper.Keeper
 	querier   keeper.QueryServer
 	msgServer types.MsgServer
+	migrator  keeper.Migrator
 }
 
 func TestKeeperTestSuite(t *testing.T) {
