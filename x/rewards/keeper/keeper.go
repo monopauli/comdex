@@ -30,6 +30,7 @@ type (
 		liquidityKeeper expected.LiquidityKeeper
 		marketKeeper    expected.MarketKeeper
 		esm             expected.EsmKeeper
+		lend            expected.LendKeeper
 	}
 )
 
@@ -46,6 +47,7 @@ func NewKeeper(
 	liquidityKeeper expected.LiquidityKeeper,
 	marketKeeper expected.MarketKeeper,
 	esm expected.EsmKeeper,
+	lend expected.LendKeeper,
 ) Keeper {
 	// set KeyTable if it has not already been set
 	if !ps.HasKeyTable() {
@@ -65,6 +67,7 @@ func NewKeeper(
 		liquidityKeeper: liquidityKeeper,
 		marketKeeper:    marketKeeper,
 		esm:             esm,
+		lend:            lend,
 	}
 }
 
@@ -117,7 +120,6 @@ func (k Keeper) ActExternalRewardsLockers(
 	assetID uint64,
 	totalRewards sdk.Coin,
 	durationDays int64,
-	// nolint
 	depositor sdk.AccAddress,
 	minLockupTimeSeconds int64,
 ) error {
@@ -173,7 +175,6 @@ func (k Keeper) ActExternalRewardsVaults(
 	appMappingID uint64, extendedPairID uint64,
 	durationDays, minLockupTimeSeconds int64,
 	totalRewards sdk.Coin,
-	// nolint
 	depositor sdk.AccAddress,
 ) error {
 	id := k.GetExternalRewardsVaultID(ctx)

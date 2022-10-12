@@ -10,7 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-	gogotypes "github.com/gogo/protobuf/types"
+	protobuftypes "github.com/gogo/protobuf/types"
 
 	"github.com/comdex-official/comdex/x/bandoracle/types"
 )
@@ -36,7 +36,7 @@ func (k Keeper) GetFetchPriceResult(ctx sdk.Context, id types.OracleRequestID) (
 // GetLastFetchPriceID return the id from the last FetchPrice request.
 func (k Keeper) GetLastFetchPriceID(ctx sdk.Context) int64 {
 	bz := ctx.KVStore(k.storeKey).Get(types.KeyPrefix(types.LastFetchPriceIDKey))
-	intV := gogotypes.Int64Value{}
+	intV := protobuftypes.Int64Value{}
 	k.cdc.MustUnmarshalLengthPrefixed(bz, &intV)
 	return intV.GetValue()
 }
@@ -45,7 +45,7 @@ func (k Keeper) GetLastFetchPriceID(ctx sdk.Context) int64 {
 func (k Keeper) SetLastFetchPriceID(ctx sdk.Context, id types.OracleRequestID) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.KeyPrefix(types.LastFetchPriceIDKey),
-		k.cdc.MustMarshalLengthPrefixed(&gogotypes.Int64Value{Value: int64(id)}))
+		k.cdc.MustMarshalLengthPrefixed(&protobuftypes.Int64Value{Value: int64(id)}))
 }
 
 func (k Keeper) FetchPrice(ctx sdk.Context, msg types.MsgFetchPriceData) (*types.MsgFetchPriceDataResponse, error) {
@@ -142,7 +142,7 @@ func (k Keeper) GetFetchPriceMsg(ctx sdk.Context) types.MsgFetchPriceData {
 
 func (k Keeper) GetLastBlockHeight(ctx sdk.Context) int64 {
 	bz := ctx.KVStore(k.storeKey).Get(types.KeyPrefix(types.LastBlockHeightKey))
-	intV := gogotypes.Int64Value{}
+	intV := protobuftypes.Int64Value{}
 	k.cdc.MustUnmarshalLengthPrefixed(bz, &intV)
 	return intV.GetValue()
 }
@@ -150,12 +150,13 @@ func (k Keeper) GetLastBlockHeight(ctx sdk.Context) int64 {
 func (k Keeper) SetLastBlockHeight(ctx sdk.Context, height int64) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.KeyPrefix(types.LastBlockHeightKey),
-		k.cdc.MustMarshalLengthPrefixed(&gogotypes.Int64Value{Value: height}))
+		k.cdc.MustMarshalLengthPrefixed(&protobuftypes.Int64Value{Value: height}))
 }
 
 func (k Keeper) AddFetchPriceRecords(ctx sdk.Context, price types.MsgFetchPriceData) error {
 	k.SetFetchPriceMsg(ctx, price)
 	k.SetLastBlockHeight(ctx, ctx.BlockHeight())
+	k.SetCheckFlag(ctx, false)
 	return nil
 }
 
@@ -168,12 +169,12 @@ func (k Keeper) OraclePriceValidationByRequestID(ctx sdk.Context, req int64) boo
 func (k Keeper) SetOracleValidationResult(ctx sdk.Context, res bool) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.KeyPrefix(types.OracleValidationResultKey),
-		k.cdc.MustMarshalLengthPrefixed(&gogotypes.BoolValue{Value: res}))
+		k.cdc.MustMarshalLengthPrefixed(&protobuftypes.BoolValue{Value: res}))
 }
 
 func (k Keeper) GetOracleValidationResult(ctx sdk.Context) bool {
 	bz := ctx.KVStore(k.storeKey).Get(types.KeyPrefix(types.OracleValidationResultKey))
-	boolV := gogotypes.BoolValue{}
+	boolV := protobuftypes.BoolValue{}
 	k.cdc.MustUnmarshalLengthPrefixed(bz, &boolV)
 	return boolV.GetValue()
 }
@@ -181,12 +182,39 @@ func (k Keeper) GetOracleValidationResult(ctx sdk.Context) bool {
 func (k Keeper) SetTempFetchPriceID(ctx sdk.Context, id int64) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.KeyPrefix(types.TempFetchPriceIDKey),
-		k.cdc.MustMarshalLengthPrefixed(&gogotypes.Int64Value{Value: id}))
+		k.cdc.MustMarshalLengthPrefixed(&protobuftypes.Int64Value{Value: id}))
 }
 
 func (k Keeper) GetTempFetchPriceID(ctx sdk.Context) int64 {
 	bz := ctx.KVStore(k.storeKey).Get(types.KeyPrefix(types.TempFetchPriceIDKey))
-	intV := gogotypes.Int64Value{}
+	intV := protobuftypes.Int64Value{}
 	k.cdc.MustUnmarshalLengthPrefixed(bz, &intV)
 	return intV.GetValue()
+}
+
+func (k Keeper) SetCheckFlag(ctx sdk.Context, flag bool) {
+	var (
+		store = ctx.KVStore(k.storeKey)
+		key   = types.CheckFlagKey
+		value = k.cdc.MustMarshal(
+			&protobuftypes.BoolValue{
+				Value: flag,
+			},
+		)
+	)
+
+	store.Set(key, value)
+}
+
+func (k Keeper) GetCheckFlag(ctx sdk.Context) bool {
+	var (
+		store = ctx.KVStore(k.storeKey)
+		key   = types.CheckFlagKey
+		value = store.Get(key)
+	)
+
+	var id protobuftypes.BoolValue
+	k.cdc.MustUnmarshal(value, &id)
+
+	return id.GetValue()
 }

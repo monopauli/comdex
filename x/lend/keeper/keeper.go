@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	liquidationtypes "github.com/comdex-official/comdex/x/liquidation/types"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
@@ -15,7 +17,7 @@ import (
 	esmtypes "github.com/comdex-official/comdex/x/esm/types"
 	"github.com/comdex-official/comdex/x/lend/expected"
 	"github.com/comdex-official/comdex/x/lend/types"
-	liquidationtypes "github.com/comdex-official/comdex/x/liquidation/types"
+	// liquidationtypes "github.com/comdex-official/comdex/x/liquidation/types"
 )
 
 type (
@@ -78,6 +80,30 @@ func uint64InAssetData(a uint64, list []*types.AssetDataPoolMapping) bool {
 	return false
 }
 
+func (k Keeper) CheckSupplyCap(ctx sdk.Context, assetID, poolID uint64, amt sdk.Int) (bool, error) {
+	var supplyCap uint64
+	assetStats, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, poolID, assetID)
+
+	currentSupply, err := k.CalcAssetPrice(ctx, assetID, assetStats.TotalLend.Add(amt))
+	if err != nil {
+		return false, err
+	}
+	pool, found := k.GetPool(ctx, poolID)
+	if !found {
+		return false, types.ErrPoolNotFound
+	}
+
+	for _, v := range pool.AssetData {
+		if assetID == v.AssetID {
+			supplyCap = v.SupplyCap
+		}
+	}
+	if currentSupply.Uint64() <= supplyCap {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (k Keeper) LendAsset(ctx sdk.Context, lenderAddr string, AssetID uint64, Amount sdk.Coin, PoolID, AppID uint64) error {
 	killSwitchParams, _ := k.GetKillSwitchData(ctx, AppID)
 	if killSwitchParams.BreakerEnable {
@@ -108,40 +134,48 @@ func (k Keeper) LendAsset(ctx sdk.Context, lenderAddr string, AssetID uint64, Am
 		return sdkerrors.Wrap(types.ErrInvalidAssetIDForPool, strconv.FormatUint(AssetID, 10))
 	}
 
+	found, err := k.CheckSupplyCap(ctx, AssetID, PoolID, Amount.Amount)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return types.ErrorSupplyCapExceeds
+	}
+
 	addr, _ := sdk.AccAddressFromBech32(lenderAddr)
 
-	if k.HasLendForAddressByAsset(ctx, addr, AssetID, PoolID) {
+	if k.HasLendForAddressByAsset(ctx, lenderAddr, AssetID, PoolID) {
 		return types.ErrorDuplicateLend
 	}
 
 	loanTokens := sdk.NewCoins(Amount)
 
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(AssetID, 10))
 	}
 	cAsset, _ := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	cToken := sdk.NewCoin(cAsset.Denom, Amount.Amount)
 
-	if err := k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, loanTokens); err != nil {
+	if err = k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, loanTokens); err != nil {
 		return err
 	}
 	// mint c/Token and set new total cToken supply
 
 	cTokens := sdk.NewCoins(cToken)
-	if err := k.bank.MintCoins(ctx, pool.ModuleName, cTokens); err != nil {
+	if err = k.bank.MintCoins(ctx, pool.ModuleName, cTokens); err != nil {
 		return err
 	}
 
-	err := k.bank.SendCoinsFromModuleToAccount(ctx, pool.ModuleName, addr, cTokens)
+	err = k.bank.SendCoinsFromModuleToAccount(ctx, pool.ModuleName, addr, cTokens)
 	if err != nil {
 		return err
 	}
 
-	lendID := k.GetUserLendIDHistory(ctx)
+	lendID := k.GetUserLendIDCounter(ctx)
 
 	var globalIndex sdk.Dec
-	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, AssetID, PoolID)
+	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, PoolID, AssetID)
 	if assetStats.LendApr.IsZero() {
 		globalIndex = sdk.OneDec()
 	} else {
@@ -162,21 +196,19 @@ func (k Keeper) LendAsset(ctx sdk.Context, lenderAddr string, AssetID uint64, Am
 		CPoolName:           pool.CPoolName,
 	}
 	k.UpdateLendStats(ctx, AssetID, PoolID, Amount.Amount, true)
-	k.SetUserLendIDHistory(ctx, lendPos.ID)
+	k.SetUserLendIDCounter(ctx, lendPos.ID)
 	k.SetLend(ctx, lendPos)
-	k.SetLendForAddressByAsset(ctx, addr, lendPos.AssetID, lendPos.ID, lendPos.PoolID)
-	err = k.UpdateUserLendIDMapping(ctx, lenderAddr, lendPos.ID, true)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDByOwnerAndPoolMapping(ctx, lenderAddr, lendPos.ID, lendPos.PoolID, true)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDsMapping(ctx, lendPos.ID, true)
-	if err != nil {
-		return err
-	}
+
+	var mappingData types.UserAssetLendBorrowMapping
+	mappingData.Owner = lendPos.Owner
+	mappingData.LendId = lendPos.ID
+	mappingData.PoolId = PoolID
+	mappingData.BorrowId = nil
+	k.SetUserLendBorrowMapping(ctx, mappingData)
+
+	poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, PoolID, AssetID)
+	poolAssetLBMappingData.LendIds = append(poolAssetLBMappingData.LendIds, lendPos.ID)
+	k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
 	return nil
 }
 
@@ -214,7 +246,7 @@ func (k Keeper) WithdrawAsset(ctx sdk.Context, addr string, lendID uint64, withd
 	pool, _ := k.GetPool(ctx, lendPos.PoolID)
 
 	if lendPos.Owner != addr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 
 	if withdrawal.Amount.GT(lendPos.AvailableToBorrow) {
@@ -232,9 +264,9 @@ func (k Keeper) WithdrawAsset(ctx sdk.Context, addr string, lendID uint64, withd
 		return sdkerrors.Wrap(types.ErrLendingPoolInsufficient, withdrawal.String())
 	}
 
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, lendPos.AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, lendPos.AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
 	}
 	cAsset, _ := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	cToken := sdk.NewCoin(cAsset.Denom, withdrawal.Amount)
@@ -248,7 +280,7 @@ func (k Keeper) WithdrawAsset(ctx sdk.Context, addr string, lendID uint64, withd
 		if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, pool.ModuleName, cToken); err != nil {
 			return err
 		}
-		//burn c/Token
+		// burn c/Token
 		err = k.bank.BurnCoins(ctx, pool.ModuleName, cTokens)
 		if err != nil {
 			return err
@@ -265,7 +297,7 @@ func (k Keeper) WithdrawAsset(ctx sdk.Context, addr string, lendID uint64, withd
 		if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, pool.ModuleName, cToken); err != nil {
 			return err
 		}
-		//burn c/Token
+		// burn c/Token
 		err = k.bank.BurnCoins(ctx, pool.ModuleName, cTokens)
 		if err != nil {
 			return err
@@ -277,11 +309,10 @@ func (k Keeper) WithdrawAsset(ctx sdk.Context, addr string, lendID uint64, withd
 
 		k.UpdateLendStats(ctx, lendPos.AssetID, lendPos.PoolID, withdrawal.Amount, false)
 		lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(withdrawal.Amount)
-		lendPos.AmountIn.Amount = lendPos.AvailableToBorrow
+		lendPos.AmountIn.Amount = sdk.ZeroInt()
 		k.SetLend(ctx, lendPos)
 	}
 	return nil
-
 }
 
 func (k Keeper) DepositAsset(ctx sdk.Context, addr string, lendID uint64, deposit sdk.Coin) error {
@@ -309,13 +340,21 @@ func (k Keeper) DepositAsset(ctx sdk.Context, addr string, lendID uint64, deposi
 	getAsset, _ := k.GetAsset(ctx, lendPos.AssetID)
 	pool, _ := k.GetPool(ctx, lendPos.PoolID)
 
+	found, err = k.CheckSupplyCap(ctx, lendPos.AssetID, lendPos.PoolID, deposit.Amount)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return types.ErrorSupplyCapExceeds
+	}
+
 	if deposit.Denom != getAsset.Denom {
 		return sdkerrors.Wrap(types.ErrBadOfferCoinAmount, deposit.Denom)
 	}
 
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, lendPos.AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, lendPos.AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
 	}
 	cAsset, _ := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	cToken := sdk.NewCoin(cAsset.Denom, deposit.Amount)
@@ -369,11 +408,11 @@ func (k Keeper) CloseLend(ctx sdk.Context, addr string, lendID uint64) error {
 	pool, _ := k.GetPool(ctx, lendPos.PoolID)
 
 	if lendPos.Owner != addr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 
-	lendIDToBorrowIDMapping, _ := k.GetLendIDToBorrowIDMapping(ctx, lendID)
-	if lendIDToBorrowIDMapping.BorrowingID != nil {
+	lendIDToBorrowIDMapping, _ := k.GetUserLendBorrowMapping(ctx, lendPos.Owner, lendID)
+	if lendIDToBorrowIDMapping.BorrowId != nil {
 		return types.ErrBorrowingPositionOpen
 	}
 	reservedAmount := k.GetReserveFunds(ctx, pool)
@@ -384,9 +423,9 @@ func (k Keeper) CloseLend(ctx sdk.Context, addr string, lendID uint64) error {
 	}
 
 	tokens := sdk.NewCoins(sdk.NewCoin(lendPos.AmountIn.Denom, lendPos.AvailableToBorrow))
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, lendPos.AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, lendPos.AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
 	}
 	cAsset, _ := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	cToken := sdk.NewCoin(cAsset.Denom, lendPos.AvailableToBorrow)
@@ -405,21 +444,11 @@ func (k Keeper) CloseLend(ctx sdk.Context, addr string, lendID uint64) error {
 		return err
 	}
 
-	k.UpdateLendStats(ctx, lendPos.AssetID, lendPos.PoolID, lendPos.AmountIn.Amount, false)
-	k.DeleteLendForAddressByAsset(ctx, lenderAddr, lendPos.AssetID, lendPos.PoolID)
+	k.UpdateLendStats(ctx, lendPos.AssetID, lendPos.PoolID, lendPos.AvailableToBorrow, false)
+	k.DeleteLendForAddressByAsset(ctx, lenderAddr.String(), lendPos.ID)
 
-	err = k.UpdateUserLendIDMapping(ctx, addr, lendPos.ID, false)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDByOwnerAndPoolMapping(ctx, addr, lendPos.ID, lendPos.PoolID, false)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDsMapping(ctx, lendPos.ID, false)
-	if err != nil {
-		return err
-	}
+	k.DeleteIDFromAssetStatsMapping(ctx, lendPos.PoolID, lendPos.AssetID, lendID, true)
+
 	k.DeleteLend(ctx, lendPos.ID)
 
 	return nil
@@ -449,7 +478,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 	}
 
 	if lendPos.Owner != addr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 
 	pair, found := k.GetLendPair(ctx, pairID)
@@ -470,7 +499,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 	if !found {
 		return assettypes.ErrorAssetDoesNotExist
 	}
-	assetInRatesStats, found := k.GetAssetRatesStats(ctx, pair.AssetIn)
+	assetInRatesStats, found := k.GetAssetRatesParams(ctx, pair.AssetIn)
 	if !found {
 		return types.ErrAssetStatsNotFound
 	}
@@ -483,7 +512,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 		return types.ErrBadOfferCoinType
 	}
 
-	if k.HasBorrowForAddressByPair(ctx, lenderAddr, pairID) {
+	if k.HasBorrowForAddressByPair(ctx, addr, pairID) {
 		return types.ErrorDuplicateBorrow
 	}
 
@@ -508,11 +537,11 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 		return sdkerrors.Wrap(types.ErrStableBorrowDisabled, loan.String())
 	}
 
-	err := k.VerifyCollaterlizationRatio(ctx, AmountIn.Amount, assetIn, loan.Amount, assetOut, assetInRatesStats.Ltv)
+	err := k.VerifyCollateralizationRatio(ctx, AmountIn.Amount, assetIn, loan.Amount, assetOut, assetInRatesStats.Ltv)
 	if err != nil {
 		return err
 	}
-	borrowID := k.GetUserBorrowIDHistory(ctx)
+	borrowID := k.GetUserBorrowIDCounter(ctx)
 
 	reservedAmount := k.GetReserveFunds(ctx, AssetOutPool)
 	availableAmount := k.ModuleBalance(ctx, AssetOutPool.ModuleName, loan.Denom)
@@ -520,7 +549,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 	if loan.Amount.GT(availableAmount.Sub(reservedAmount)) {
 		return sdkerrors.Wrap(types.ErrBorrowingPoolInsufficient, loan.String())
 	}
-	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, pair.AssetOut, pair.AssetOutPoolID)
+	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
 	reserveGlobalIndex, err := k.GetReserveRate(ctx, pair.AssetOutPoolID, pair.AssetOut)
 	if err != nil {
 		reserveGlobalIndex = sdk.OneDec()
@@ -533,7 +562,6 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 	// c. When the borrow is from different pool using Second Transit Asset
 	// else the borrowing pool is not having sufficient tokens to loan
 	if !pair.IsInterPool {
-
 		// take c/Tokens from the user
 		if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, AssetInPool.ModuleName, AmountIn); err != nil {
 			return err
@@ -563,79 +591,74 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 			IsStableBorrow:      IsStableBorrow,
 			StableBorrowRate:    StableBorrowRate,
 			BorrowingTime:       ctx.BlockTime(),
-			UpdatedAmountOut:    AmountOut.Amount,
+			InterestAccumulated: sdk.ZeroDec(),
 			GlobalIndex:         globalIndex,
 			ReserveGlobalIndex:  reserveGlobalIndex,
 			LastInteractionTime: ctx.BlockTime(),
 			CPoolName:           AssetOutPool.CPoolName,
+			IsLiquidated:        false,
 		}
-		k.UpdateBorrowStats(ctx, pair, borrowPos, AmountOut.Amount, true)
-		err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, true)
-		if err != nil {
-			return err
-		}
+		k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, AmountOut.Amount, true)
+		// err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, true)
+		// if err != nil {
+		// 	return err
+		// }
+		poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
+		poolAssetLBMappingData.BorrowIds = append(poolAssetLBMappingData.BorrowIds, borrowPos.ID)
+		k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
+
 		lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(AmountIn.Amount)
 		k.SetLend(ctx, lendPos)
-		k.SetUserBorrowIDHistory(ctx, borrowPos.ID)
+		k.SetUserBorrowIDCounter(ctx, borrowPos.ID)
 		k.SetBorrow(ctx, borrowPos)
-		k.SetBorrowForAddressByPair(ctx, lenderAddr, pairID, borrowPos.ID)
-		err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, true)
-		if err != nil {
-			return err
-		}
-		err = k.UpdateBorrowIDByOwnerAndPoolMapping(ctx, lendPos.Owner, borrowPos.ID, pair.AssetOutPoolID, true)
-		if err != nil {
-			return err
-		}
-		err = k.UpdateLendIDToBorrowIDMapping(ctx, borrowPos.LendingID, borrowPos.ID, true)
-		if err != nil {
-			return err
-		}
+
+		mappingData, _ := k.GetUserLendBorrowMapping(ctx, addr, lendID)
+		mappingData.BorrowId = append(mappingData.BorrowId, borrowPos.ID)
+		k.SetUserLendBorrowMapping(ctx, mappingData)
 	} else {
 		updatedAmtIn := AmountIn.Amount.ToDec().Mul(assetInRatesStats.Ltv)
-		priceAssetIn, found := k.GetPriceForAsset(ctx, pair.AssetIn)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		updatedAmtInPrice, err := k.CalcAssetPrice(ctx, lendPos.AssetID, updatedAmtIn.TruncateInt())
+		if err != nil {
+			return err
 		}
-		amtIn := updatedAmtIn.TruncateInt().Mul(sdk.NewIntFromUint64(priceAssetIn))
+		var firstTransitAssetID, secondTransitAssetID uint64
+		for _, data := range AssetInPool.AssetData {
+			if data.AssetTransitType == 2 {
+				firstTransitAssetID = data.AssetID
+			}
+			if data.AssetTransitType == 3 {
+				secondTransitAssetID = data.AssetID
+			}
+		}
+		firstTransitAsset, _ := k.GetAsset(ctx, firstTransitAssetID)
+		secondTransitAsset, _ := k.GetAsset(ctx, secondTransitAssetID)
 
-		priceFirstBridgedAsset, found := k.GetPriceForAsset(ctx, AssetInPool.FirstBridgedAssetID)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		unitAmountFirstTransitAsset, err := k.CalcAssetPrice(ctx, firstTransitAssetID, sdk.OneInt())
+		if err != nil {
+			return err
 		}
-		priceSecondBridgedAsset, found := k.GetPriceForAsset(ctx, AssetInPool.SecondBridgedAssetID)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		unitAmountSecondTransitAsset, err := k.CalcAssetPrice(ctx, secondTransitAssetID, sdk.OneInt())
+		if err != nil {
+			return err
 		}
-		firstBridgedAsset, found := k.GetAsset(ctx, AssetInPool.FirstBridgedAssetID)
-		if !found {
-			return assettypes.ErrorAssetDoesNotExist
-		}
-		secondBridgedAsset, found := k.GetAsset(ctx, AssetInPool.SecondBridgedAssetID)
-		if !found {
-			return assettypes.ErrorAssetDoesNotExist
-		}
+
 		// qty of first and second bridged asset to be sent over different pool according to the borrow Pool
 
-		if priceFirstBridgedAsset == types.Uint64Zero || priceSecondBridgedAsset == types.Uint64Zero {
-			return types.ErrorPriceDoesNotExist
-		}
+		firstBridgedAssetQty := updatedAmtInPrice.Quo(unitAmountFirstTransitAsset)
+		firstBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, firstTransitAsset.Denom)
+		secondBridgedAssetQty := updatedAmtInPrice.Quo(unitAmountSecondTransitAsset)
+		secondBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, secondTransitAsset.Denom)
 
-		firstBridgedAssetQty := amtIn.Quo(sdk.NewIntFromUint64(priceFirstBridgedAsset))
-		firstBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, firstBridgedAsset.Denom)
-		secondBridgedAssetQty := amtIn.Quo(sdk.NewIntFromUint64(priceSecondBridgedAsset))
-		secondBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, secondBridgedAsset.Denom)
-
-		firstBridgedAssetRatesStats, found := k.GetAssetRatesStats(ctx, AssetInPool.FirstBridgedAssetID)
+		firstBridgedAssetRatesStats, found := k.GetAssetRatesParams(ctx, firstTransitAsset.Id)
 		if !found {
 			return types.ErrAssetStatsNotFound
 		}
-		secondBridgedAssetRatesStats, found := k.GetAssetRatesStats(ctx, AssetInPool.SecondBridgedAssetID)
+		secondBridgedAssetRatesStats, found := k.GetAssetRatesParams(ctx, secondTransitAsset.Id)
 		if !found {
 			return types.ErrAssetStatsNotFound
 		}
 		if firstBridgedAssetQty.LT(firstBridgedAssetBal) {
-			err = k.VerifyCollaterlizationRatio(ctx, firstBridgedAssetQty, firstBridgedAsset, loan.Amount, assetOut, firstBridgedAssetRatesStats.Ltv)
+			err = k.VerifyCollateralizationRatio(ctx, firstBridgedAssetQty, firstTransitAsset, loan.Amount, assetOut, firstBridgedAssetRatesStats.Ltv)
 			if err != nil {
 				return err
 			}
@@ -643,7 +666,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 			if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, AssetInPool.ModuleName, AmountIn); err != nil {
 				return err
 			}
-			bridgedAssetAmount := sdk.NewCoin(firstBridgedAsset.Denom, firstBridgedAssetQty)
+			bridgedAssetAmount := sdk.NewCoin(firstTransitAsset.Denom, firstBridgedAssetQty)
 			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(bridgedAssetAmount)); err != nil {
 				return err
 			}
@@ -672,37 +695,28 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 				IsStableBorrow:      IsStableBorrow,
 				StableBorrowRate:    StableBorrowRate,
 				BorrowingTime:       ctx.BlockTime(),
-				UpdatedAmountOut:    AmountOut.Amount,
+				InterestAccumulated: sdk.ZeroDec(),
 				GlobalIndex:         globalIndex,
 				ReserveGlobalIndex:  reserveGlobalIndex,
 				LastInteractionTime: ctx.BlockTime(),
 				CPoolName:           AssetOutPool.CPoolName,
+				IsLiquidated:        false,
 			}
-			k.UpdateBorrowStats(ctx, pair, borrowPos, AmountOut.Amount, true)
+			k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, AmountOut.Amount, true)
 
-			err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
+			poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
+			poolAssetLBMappingData.BorrowIds = append(poolAssetLBMappingData.BorrowIds, borrowPos.ID)
+			k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
+
 			lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(AmountIn.Amount)
 			k.SetLend(ctx, lendPos)
-			k.SetUserBorrowIDHistory(ctx, borrowPos.ID)
+			k.SetUserBorrowIDCounter(ctx, borrowPos.ID)
 			k.SetBorrow(ctx, borrowPos)
-			k.SetBorrowForAddressByPair(ctx, lenderAddr, pairID, borrowPos.ID)
-			err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
-			err = k.UpdateBorrowIDByOwnerAndPoolMapping(ctx, lendPos.Owner, borrowPos.ID, pair.AssetOutPoolID, true)
-			if err != nil {
-				return err
-			}
-			err = k.UpdateLendIDToBorrowIDMapping(ctx, borrowPos.LendingID, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
+			mappingData, _ := k.GetUserLendBorrowMapping(ctx, addr, lendID)
+			mappingData.BorrowId = append(mappingData.BorrowId, borrowPos.ID)
+			k.SetUserLendBorrowMapping(ctx, mappingData)
 		} else if secondBridgedAssetQty.LT(secondBridgedAssetBal) {
-			err = k.VerifyCollaterlizationRatio(ctx, secondBridgedAssetQty, secondBridgedAsset, loan.Amount, assetOut, secondBridgedAssetRatesStats.Ltv)
+			err = k.VerifyCollateralizationRatio(ctx, secondBridgedAssetQty, secondTransitAsset, loan.Amount, assetOut, secondBridgedAssetRatesStats.Ltv)
 			if err != nil {
 				return err
 			}
@@ -711,7 +725,7 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 				return err
 			}
 
-			bridgedAssetAmount := sdk.NewCoin(secondBridgedAsset.Denom, secondBridgedAssetQty)
+			bridgedAssetAmount := sdk.NewCoin(secondTransitAsset.Denom, secondBridgedAssetQty)
 			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(bridgedAssetAmount)); err != nil {
 				return err
 			}
@@ -740,34 +754,27 @@ func (k Keeper) BorrowAsset(ctx sdk.Context, addr string, lendID, pairID uint64,
 				IsStableBorrow:      IsStableBorrow,
 				StableBorrowRate:    StableBorrowRate,
 				BorrowingTime:       ctx.BlockTime(),
-				UpdatedAmountOut:    AmountOut.Amount,
+				InterestAccumulated: sdk.ZeroDec(),
 				GlobalIndex:         globalIndex,
 				ReserveGlobalIndex:  reserveGlobalIndex,
 				LastInteractionTime: ctx.BlockTime(),
 				CPoolName:           AssetOutPool.CPoolName,
+				IsLiquidated:        false,
 			}
-			k.UpdateBorrowStats(ctx, pair, borrowPos, AmountOut.Amount, true)
-			err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
+			k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, AmountOut.Amount, true)
+
+			poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
+			poolAssetLBMappingData.BorrowIds = append(poolAssetLBMappingData.BorrowIds, borrowPos.ID)
+			k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
+
 			lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(AmountIn.Amount)
 			k.SetLend(ctx, lendPos)
-			k.SetUserBorrowIDHistory(ctx, borrowPos.ID)
+			k.SetUserBorrowIDCounter(ctx, borrowPos.ID)
 			k.SetBorrow(ctx, borrowPos)
-			k.SetBorrowForAddressByPair(ctx, lenderAddr, pairID, borrowPos.ID)
-			err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
-			err = k.UpdateBorrowIDByOwnerAndPoolMapping(ctx, lendPos.Owner, borrowPos.ID, pair.AssetOutPoolID, true)
-			if err != nil {
-				return err
-			}
-			err = k.UpdateLendIDToBorrowIDMapping(ctx, borrowPos.LendingID, borrowPos.ID, true)
-			if err != nil {
-				return err
-			}
+
+			mappingData, _ := k.GetUserLendBorrowMapping(ctx, addr, lendID)
+			mappingData.BorrowId = append(mappingData.BorrowId, borrowPos.ID)
+			k.SetUserLendBorrowMapping(ctx, mappingData)
 		} else {
 			return types.ErrBorrowingPoolInsufficient
 		}
@@ -780,8 +787,11 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 	if !found {
 		return types.ErrBorrowNotFound
 	}
+	if borrowPos.IsLiquidated {
+		return types.ErrorBorrowPosLiquidated
+	}
 
-	if payment.Amount.Equal(borrowPos.AmountOut.Amount) {
+	if payment.Amount.Equal(borrowPos.AmountOut.Amount.Add(borrowPos.InterestAccumulated.TruncateInt())) {
 		err := k.CloseBorrow(ctx, borrowerAddr, borrowID)
 		if err != nil {
 			return err
@@ -794,7 +804,7 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 	if !found {
 		return types.ErrorPairNotFound
 	}
-	assetStats, found := k.GetAssetRatesStats(ctx, pair.AssetOut)
+	assetStats, found := k.GetAssetRatesParams(ctx, pair.AssetOut)
 	if !found {
 		return types.ErrAssetStatsNotFound
 	}
@@ -817,7 +827,7 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 	}
 
 	if lendPos.Owner != borrowerAddr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	indexGlobalCurrent, reserveGlobalIndex, err := k.IterateBorrow(ctx, borrowID)
 	if err != nil {
@@ -830,30 +840,25 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 	if borrowPos.AmountOut.Denom != payment.Denom {
 		return types.ErrBadOfferCoinAmount
 	}
-	if payment.Amount.GT(borrowPos.UpdatedAmountOut) {
+	if payment.Amount.GT(borrowPos.AmountOut.Amount.Add(borrowPos.InterestAccumulated.Ceil().RoundInt())) {
 		return types.ErrInvalidRepayment
 	}
 	borrowPos.GlobalIndex = indexGlobalCurrent
 	borrowPos.ReserveGlobalIndex = reserveGlobalIndex
 	borrowPos.LastInteractionTime = ctx.BlockTime()
+	poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
 
-	if payment.Amount.LT(borrowPos.AmountOut.Amount) {
+	if payment.Amount.LTE(borrowPos.InterestAccumulated.TruncateInt()) {
 		// sending repayment to moduleAcc from borrower
 		if err = k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, sdk.NewCoins(payment)); err != nil {
 			return err
 		}
-		borrowPos.UpdatedAmountOut = borrowPos.UpdatedAmountOut.Sub(payment.Amount)
-		borrowPos.AmountOut.Amount = borrowPos.AmountOut.Amount.Sub(payment.Amount)
-		// reserve pool calculation
-		// there are 2 possible cases
-		// a. if the amt to reserve pool is less than the repayment amount, then amt to reserve pool is sent to reserve pool and record is set to zero for that position.
-		// Also, the remaining amount that was sent in pool, for that we mint equal amount of cToken.
-		// b. if the amt to reserve pool is greater than the repayment amount : then reduce the reserve pool record by repayment amt.
+		borrowPos.InterestAccumulated = borrowPos.InterestAccumulated.Sub(sdk.NewDecFromInt(payment.Amount))
 
-		reservePoolRecords, _ := k.GetReservePoolRecordsForBorrow(ctx, borrowID)
-		amtToReservePool := reservePoolRecords.InterestAccumulated
+		reservePoolRecords, _ := k.GetBorrowInterestTracker(ctx, borrowID)
+		amtToReservePool := reservePoolRecords.ReservePoolInterest
+
 		if amtToReservePool.TruncateInt().LTE(payment.Amount) {
-
 			if amtToReservePool.TruncateInt().LT(sdk.ZeroInt()) {
 				return types.ErrReserveRatesNotFound
 			}
@@ -870,10 +875,13 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 				if err != nil {
 					return err
 				}
+				poolAssetLBMappingData.TotalInterestAccumulated = poolAssetLBMappingData.TotalInterestAccumulated.Add(amtBackToPool)
+				poolAssetLBMappingData.TotalLend = poolAssetLBMappingData.TotalLend.Add(amtBackToPool)
+				k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
 			}
 
-			reservePoolRecords.InterestAccumulated = sdk.ZeroDec()
-			k.SetReservePoolRecordsForBorrow(ctx, reservePoolRecords)
+			reservePoolRecords.ReservePoolInterest = sdk.ZeroDec()
+			k.SetBorrowInterestTracker(ctx, reservePoolRecords)
 		} else {
 			if amtToReservePool.TruncateInt().LT(sdk.ZeroInt()) {
 				return types.ErrReserveRatesNotFound
@@ -885,45 +893,61 @@ func (k Keeper) RepayAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string
 					return err
 				}
 			}
-			reservePoolRecords.InterestAccumulated = reservePoolRecords.InterestAccumulated.TruncateInt().ToDec().Sub(payment.Amount.ToDec())
-			k.SetReservePoolRecordsForBorrow(ctx, reservePoolRecords)
+			reservePoolRecords.ReservePoolInterest = reservePoolRecords.ReservePoolInterest.Sub(payment.Amount.ToDec())
+			k.SetBorrowInterestTracker(ctx, reservePoolRecords)
 		}
-
 	} else {
-
 		if err = k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, sdk.NewCoins(payment)); err != nil {
 			return err
 		}
-		borrowPos.UpdatedAmountOut = borrowPos.UpdatedAmountOut.Sub(payment.Amount)
 
-		reservePoolRecords, _ := k.GetReservePoolRecordsForBorrow(ctx, borrowID)
-		amtToReservePool := reservePoolRecords.InterestAccumulated
+		borrowPos.AmountOut.Amount = borrowPos.AmountOut.Amount.Sub(payment.Amount).Add(borrowPos.InterestAccumulated.TruncateInt())
 
-		if amtToReservePool.TruncateInt().GT(sdk.ZeroInt()) {
-			return types.ErrReserveRatesNotFound
-		}
-		if amtToReservePool.TruncateInt().GT(sdk.ZeroInt()) {
-			amount := sdk.NewCoin(payment.Denom, amtToReservePool.TruncateInt())
-			err = k.SetReserveBalances(ctx, pool.ModuleName, pair.AssetOut, amount)
-			if err != nil {
-				return err
+		reservePoolRecords, _ := k.GetBorrowInterestTracker(ctx, borrowID)
+		amtToReservePool := reservePoolRecords.ReservePoolInterest
+
+		if amtToReservePool.TruncateInt().LTE(payment.Amount) {
+			if amtToReservePool.TruncateInt().LT(sdk.ZeroInt()) {
+				return types.ErrReserveRatesNotFound
 			}
-		}
-		interestAmtToPool := payment.Amount.Sub(borrowPos.AmountOut.Amount)
-		amtBackToPool := interestAmtToPool.Sub(amtToReservePool.TruncateInt())
-		if amtBackToPool.GT(sdk.ZeroInt()) {
-			err = k.MintCoin(ctx, pool.ModuleName, sdk.NewCoin(cAsset.Denom, amtBackToPool))
-			if err != nil {
-				return err
+			if amtToReservePool.TruncateInt().GT(sdk.ZeroInt()) {
+				amount := sdk.NewCoin(payment.Denom, amtToReservePool.TruncateInt())
+				err = k.SetReserveBalances(ctx, pool.ModuleName, pair.AssetOut, amount)
+				if err != nil {
+					return err
+				}
 			}
+			amtBackToPool := payment.Amount.Sub(amtToReservePool.TruncateInt())
+			if amtBackToPool.GT(sdk.ZeroInt()) {
+				err = k.MintCoin(ctx, pool.ModuleName, sdk.NewCoin(cAsset.Denom, amtBackToPool))
+				if err != nil {
+					return err
+				}
+				poolAssetLBMappingData.TotalInterestAccumulated = poolAssetLBMappingData.TotalInterestAccumulated.Add(amtBackToPool)
+				poolAssetLBMappingData.TotalLend = poolAssetLBMappingData.TotalLend.Add(amtBackToPool)
+				k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
+			}
+
+			reservePoolRecords.ReservePoolInterest = sdk.ZeroDec()
+			k.SetBorrowInterestTracker(ctx, reservePoolRecords)
+		} else {
+			if amtToReservePool.TruncateInt().LT(sdk.ZeroInt()) {
+				return types.ErrReserveRatesNotFound
+			}
+			if amtToReservePool.TruncateInt().GT(sdk.ZeroInt()) {
+				amount := sdk.NewCoin(payment.Denom, amtToReservePool.TruncateInt())
+				err = k.SetReserveBalances(ctx, pool.ModuleName, pair.AssetOut, amount)
+				if err != nil {
+					return err
+				}
+			}
+			reservePoolRecords.ReservePoolInterest = reservePoolRecords.ReservePoolInterest.Sub(payment.Amount.ToDec())
+			k.SetBorrowInterestTracker(ctx, reservePoolRecords)
 		}
-
-		borrowPos.AmountOut.Amount = borrowPos.UpdatedAmountOut
-		reservePoolRecords.InterestAccumulated = sdk.ZeroDec()
-
-		k.SetReservePoolRecordsForBorrow(ctx, reservePoolRecords)
+		k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, payment.Amount.Sub(borrowPos.InterestAccumulated.TruncateInt()), false)
+		borrowPos.InterestAccumulated = sdk.ZeroDec()
 	}
-	k.UpdateBorrowStats(ctx, pair, borrowPos, payment.Amount, false)
+
 	k.SetBorrow(ctx, borrowPos)
 
 	return nil
@@ -934,6 +958,11 @@ func (k Keeper) DepositBorrowAsset(ctx sdk.Context, borrowID uint64, addr string
 	if !found {
 		return types.ErrBorrowNotFound
 	}
+
+	if borrowPos.IsLiquidated {
+		return types.ErrorBorrowPosLiquidated
+	}
+
 	lendID := borrowPos.LendingID
 	pairID := borrowPos.PairID
 	lenderAddr, _ := sdk.AccAddressFromBech32(addr)
@@ -949,7 +978,7 @@ func (k Keeper) DepositBorrowAsset(ctx sdk.Context, borrowID uint64, addr string
 	}
 
 	if lendPos.Owner != addr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	indexGlobalCurrent, reserveGlobalIndex, err := k.IterateBorrow(ctx, borrowID)
 	if err != nil {
@@ -962,9 +991,9 @@ func (k Keeper) DepositBorrowAsset(ctx sdk.Context, borrowID uint64, addr string
 	borrowPos.GlobalIndex = indexGlobalCurrent
 	borrowPos.ReserveGlobalIndex = reserveGlobalIndex
 	borrowPos.LastInteractionTime = ctx.BlockTime()
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, lendPos.AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, lendPos.AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(lendPos.AssetID, 10))
 	}
 	cAsset, found := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	if !found {
@@ -998,66 +1027,68 @@ func (k Keeper) DepositBorrowAsset(ctx sdk.Context, borrowID uint64, addr string
 		borrowPos.AmountIn = borrowPos.AmountIn.Add(AmountIn)
 		k.SetBorrow(ctx, borrowPos)
 	} else {
-		assetIn := AmountIn.Amount
-		priceAssetIn, found := k.GetPriceForAsset(ctx, pair.AssetIn)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		amtIn, err := k.CalcAssetPrice(ctx, pair.AssetIn, (sdk.NewDecFromInt(AmountIn.Amount).Mul(assetRatesStat.Ltv)).TruncateInt())
+		if err != nil {
+			return err
 		}
-		amtIn := assetIn.Mul(sdk.NewIntFromUint64(priceAssetIn))
 
-		priceFirstBridgedAsset, found := k.GetPriceForAsset(ctx, AssetInPool.FirstBridgedAssetID)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		var firstTransitAssetID, secondTransitAssetID uint64
+		for _, data := range AssetInPool.AssetData {
+			if data.AssetTransitType == 2 {
+				firstTransitAssetID = data.AssetID
+			}
+			if data.AssetTransitType == 3 {
+				secondTransitAssetID = data.AssetID
+			}
 		}
-		priceSecondBridgedAsset, found := k.GetPriceForAsset(ctx, AssetInPool.SecondBridgedAssetID)
-		if !found {
-			return types.ErrorPriceDoesNotExist
+		firstTransitAsset, _ := k.GetAsset(ctx, firstTransitAssetID)
+		secondTransitAsset, _ := k.GetAsset(ctx, secondTransitAssetID)
+
+		unitAmountFirstTransitAsset, err := k.CalcAssetPrice(ctx, firstTransitAssetID, sdk.OneInt())
+		if err != nil {
+			return err
 		}
-		firstBridgedAsset, found := k.GetAsset(ctx, AssetInPool.FirstBridgedAssetID)
-		if !found {
-			return assettypes.ErrorAssetDoesNotExist
-		}
-		secondBridgedAsset, found := k.GetAsset(ctx, AssetInPool.SecondBridgedAssetID)
-		if !found {
-			return assettypes.ErrorAssetDoesNotExist
+		unitAmountSecondTransitAsset, err := k.CalcAssetPrice(ctx, secondTransitAssetID, sdk.OneInt())
+		if err != nil {
+			return err
 		}
 
 		// qty of first and second bridged asset to be sent over different pool according to the borrow Pool
 
-		firstBridgedAssetq := amtIn.Quo(sdk.NewIntFromUint64(priceFirstBridgedAsset))
-		firstBridgedAssetQty := firstBridgedAssetq.ToDec().Mul(assetRatesStat.Ltv)
-		firstBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, firstBridgedAsset.Denom)
-		secondBridgedAssetq := amtIn.Quo(sdk.NewIntFromUint64(priceSecondBridgedAsset))
-		secondBridgedAssetQty := secondBridgedAssetq.ToDec().Mul(assetRatesStat.Ltv)
-		secondBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, secondBridgedAsset.Denom)
+		firstBridgedAssetQty := amtIn.Quo(unitAmountFirstTransitAsset)
+		firstBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, firstTransitAsset.Denom)
+		secondBridgedAssetQty := amtIn.Quo(unitAmountSecondTransitAsset)
+		secondBridgedAssetBal := k.ModuleBalance(ctx, AssetInPool.ModuleName, secondTransitAsset.Denom)
 
-		if borrowPos.BridgedAssetAmount.Denom == firstBridgedAsset.Denom && firstBridgedAssetQty.LT(firstBridgedAssetBal.ToDec()) {
+		// qty of first and second bridged asset to be sent over different pool according to the borrow Pool
+
+		if borrowPos.BridgedAssetAmount.Denom == firstTransitAsset.Denom && firstBridgedAssetQty.LT(firstBridgedAssetBal) {
 			// take c/Tokens from the user
 			if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, AssetInPool.ModuleName, AmountIn); err != nil {
 				return err
 			}
 
-			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(firstBridgedAsset.Denom, firstBridgedAssetQty.TruncateInt()))); err != nil {
+			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(firstTransitAsset.Denom, firstBridgedAssetQty))); err != nil {
 				return err
 			}
 			lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(AmountIn.Amount)
 			k.SetLend(ctx, lendPos)
 			borrowPos.AmountIn = borrowPos.AmountIn.Add(AmountIn)
-			borrowPos.BridgedAssetAmount.Amount = borrowPos.BridgedAssetAmount.Amount.Add(firstBridgedAssetQty.TruncateInt())
+			borrowPos.BridgedAssetAmount.Amount = borrowPos.BridgedAssetAmount.Amount.Add(firstBridgedAssetQty)
 			k.SetBorrow(ctx, borrowPos)
-		} else if secondBridgedAssetQty.LT(secondBridgedAssetBal.ToDec()) {
+		} else if secondBridgedAssetQty.LT(secondBridgedAssetBal) {
 			// take c/Tokens from the user
 			if err = k.SendCoinFromAccountToModule(ctx, lenderAddr, AssetInPool.ModuleName, AmountIn); err != nil {
 				return err
 			}
 
-			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(secondBridgedAsset.Denom, secondBridgedAssetQty.TruncateInt()))); err != nil {
+			if err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(secondTransitAsset.Denom, secondBridgedAssetQty))); err != nil {
 				return err
 			}
 			lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Sub(AmountIn.Amount)
 			k.SetLend(ctx, lendPos)
 			borrowPos.AmountIn = borrowPos.AmountIn.Add(AmountIn)
-			borrowPos.BridgedAssetAmount.Amount = borrowPos.BridgedAssetAmount.Amount.Add(secondBridgedAssetQty.TruncateInt())
+			borrowPos.BridgedAssetAmount.Amount = borrowPos.BridgedAssetAmount.Amount.Add(secondBridgedAssetQty)
 			k.SetBorrow(ctx, borrowPos)
 		} else {
 			return types.ErrBridgeAssetQtyInsufficient
@@ -1071,6 +1102,11 @@ func (k Keeper) DrawAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string,
 	if !found {
 		return types.ErrBorrowNotFound
 	}
+
+	if borrowPos.IsLiquidated {
+		return types.ErrorBorrowPosLiquidated
+	}
+
 	addr, _ := sdk.AccAddressFromBech32(borrowerAddr)
 	pair, found := k.GetLendPair(ctx, borrowPos.PairID)
 	if !found {
@@ -1091,7 +1127,7 @@ func (k Keeper) DrawAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string,
 	}
 
 	if lendPos.Owner != borrowerAddr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	indexGlobalCurrent, reserveGlobalIndex, err := k.IterateBorrow(ctx, borrowID)
 	if err != nil {
@@ -1115,21 +1151,20 @@ func (k Keeper) DrawAsset(ctx sdk.Context, borrowID uint64, borrowerAddr string,
 	if !found {
 		return assettypes.ErrorAssetDoesNotExist
 	}
-	assetRatesStats, found := k.GetAssetRatesStats(ctx, pair.AssetIn)
+	assetRatesStats, found := k.GetAssetRatesParams(ctx, pair.AssetIn)
 	if !found {
 		return types.ErrorAssetStatsNotFound
 	}
-	err = k.VerifyCollaterlizationRatio(ctx, borrowPos.AmountIn.Amount, assetIn, borrowPos.UpdatedAmountOut.Add(amount.Amount), assetOut, assetRatesStats.Ltv)
+	err = k.VerifyCollateralizationRatio(ctx, borrowPos.AmountIn.Amount, assetIn, borrowPos.AmountOut.Amount.Add(borrowPos.InterestAccumulated.TruncateInt()).Add(amount.Amount), assetOut, assetRatesStats.Ltv)
 	if err != nil {
 		return err
 	}
 	if err = k.SendCoinFromModuleToAccount(ctx, pool.ModuleName, addr, amount); err != nil {
 		return err
 	}
-	borrowPos.UpdatedAmountOut = borrowPos.UpdatedAmountOut.Add(amount.Amount)
 	borrowPos.AmountOut = borrowPos.AmountOut.Add(amount)
 	k.SetBorrow(ctx, borrowPos)
-	k.UpdateBorrowStats(ctx, pair, borrowPos, amount.Amount, true)
+	k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, amount.Amount, true)
 
 	return nil
 }
@@ -1144,7 +1179,7 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 	if !found {
 		return types.ErrorPairNotFound
 	}
-	assetStats, found := k.GetAssetRatesStats(ctx, pair.AssetOut)
+	assetStats, found := k.GetAssetRatesParams(ctx, pair.AssetOut)
 	if !found {
 		return types.ErrAssetStatsNotFound
 	}
@@ -1165,7 +1200,7 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 		return esmtypes.ErrCircuitBreakerEnabled
 	}
 	if lendPos.Owner != borrowerAddr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	indexGlobalCurrent, reserveGlobalIndex, err := k.IterateBorrow(ctx, borrowID)
 	if err != nil {
@@ -1187,10 +1222,9 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 		return assettypes.ErrorAssetDoesNotExist
 	}
 	lenderAddr, _ := sdk.AccAddressFromBech32(lendPos.Owner)
-	if borrowPos.UpdatedAmountOut.LTE(sdk.ZeroInt()) {
-		return types.ErrInsufficientFunds
-	}
-	amt := sdk.NewCoins(sdk.NewCoin(assetOut.Denom, borrowPos.UpdatedAmountOut))
+	poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, pair.AssetOutPoolID, pair.AssetOut)
+
+	amt := sdk.NewCoins(sdk.NewCoin(assetOut.Denom, borrowPos.AmountOut.Amount.Add(borrowPos.InterestAccumulated.TruncateInt())))
 	if err = k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, amt); err != nil {
 		return err
 	}
@@ -1198,8 +1232,8 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 		return err
 	}
 
-	reservePoolRecords, _ := k.GetReservePoolRecordsForBorrow(ctx, borrowID)
-	amtToReservePool := reservePoolRecords.InterestAccumulated
+	reservePoolRecords, _ := k.GetBorrowInterestTracker(ctx, borrowID)
+	amtToReservePool := reservePoolRecords.ReservePoolInterest
 	if amtToReservePool.TruncateInt().GT(sdk.ZeroInt()) {
 		return types.ErrReserveRatesNotFound
 	}
@@ -1210,30 +1244,15 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 			return err
 		}
 	}
-	amtBackToPool := borrowPos.UpdatedAmountOut.Sub(borrowPos.AmountOut.Amount)
-	amtToMint := amtBackToPool.Sub(amtToReservePool.TruncateInt())
+	amtToMint := borrowPos.InterestAccumulated.TruncateInt().Sub(amtToReservePool.TruncateInt())
 	if amtToMint.GT(sdk.ZeroInt()) {
 		err = k.MintCoin(ctx, pool.ModuleName, sdk.NewCoin(cAsset.Denom, amtToMint))
 		if err != nil {
 			return err
 		}
-	}
-	err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, false)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateBorrowIDByOwnerAndPoolMapping(ctx, lendPos.Owner, borrowPos.ID, pair.AssetOutPoolID, false)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, false)
-	if err != nil {
-		return err
-	}
-	k.DeleteBorrowForAddressByPair(ctx, addr, borrowPos.PairID)
-	err = k.UpdateLendIDToBorrowIDMapping(ctx, borrowPos.LendingID, borrowPos.ID, false)
-	if err != nil {
-		return err
+		poolAssetLBMappingData.TotalInterestAccumulated = poolAssetLBMappingData.TotalInterestAccumulated.Add(amtToMint)
+		poolAssetLBMappingData.TotalLend = poolAssetLBMappingData.TotalLend.Add(amtToMint)
+		k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
 	}
 
 	if pair.IsInterPool {
@@ -1242,10 +1261,12 @@ func (k Keeper) CloseBorrow(ctx sdk.Context, borrowerAddr string, borrowID uint6
 		}
 	}
 
-	k.UpdateBorrowStats(ctx, pair, borrowPos, borrowPos.UpdatedAmountOut, false)
+	k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, borrowPos.AmountOut.Amount, false)
 
 	lendPos.AvailableToBorrow = lendPos.AvailableToBorrow.Add(borrowPos.AmountIn.Amount)
 	k.SetLend(ctx, lendPos)
+	k.DeleteIDFromAssetStatsMapping(ctx, pair.AssetOutPoolID, pair.AssetOut, borrowID, false)
+	k.DeleteBorrowIDFromUserMapping(ctx, lendPos.Owner, lendPos.ID, borrowID)
 	k.DeleteBorrow(ctx, borrowID)
 
 	return nil
@@ -1281,22 +1302,27 @@ func (k Keeper) BorrowAlternate(ctx sdk.Context, lenderAddr string, AssetID, Poo
 		return sdkerrors.Wrap(types.ErrInvalidAssetIDForPool, strconv.FormatUint(AssetID, 10))
 	}
 
+	found, err := k.CheckSupplyCap(ctx, AssetID, PoolID, AmountIn.Amount)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return types.ErrorSupplyCapExceeds
+	}
+
 	addr, _ := sdk.AccAddressFromBech32(lenderAddr)
 
-	if k.HasLendForAddressByAsset(ctx, addr, AssetID, PoolID) {
+	if k.HasLendForAddressByAsset(ctx, lenderAddr, AssetID, PoolID) {
 		return types.ErrorDuplicateLend
 	}
 
 	loanTokens := sdk.NewCoins(AmountIn)
 
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, AssetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, AssetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(AssetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(AssetID, 10))
 	}
-	cAsset, found := k.GetAsset(ctx, assetRatesStat.CAssetID)
-	if !found {
-		return assettypes.ErrorAssetDoesNotExist
-	}
+	cAsset, _ := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	cToken := sdk.NewCoin(cAsset.Denom, AmountIn.Amount)
 
 	if err := k.bank.SendCoinsFromAccountToModule(ctx, addr, pool.ModuleName, loanTokens); err != nil {
@@ -1309,15 +1335,15 @@ func (k Keeper) BorrowAlternate(ctx sdk.Context, lenderAddr string, AssetID, Poo
 		return err
 	}
 
-	err := k.bank.SendCoinsFromModuleToAccount(ctx, pool.ModuleName, addr, cTokens)
+	err = k.bank.SendCoinsFromModuleToAccount(ctx, pool.ModuleName, addr, cTokens)
 	if err != nil {
 		return err
 	}
 
-	lendID := k.GetUserLendIDHistory(ctx)
+	lendID := k.GetUserLendIDCounter(ctx)
 
 	var globalIndex sdk.Dec
-	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, AssetID, PoolID)
+	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, PoolID, AssetID)
 	if assetStats.LendApr.IsZero() {
 		globalIndex = sdk.OneDec()
 	} else {
@@ -1338,21 +1364,18 @@ func (k Keeper) BorrowAlternate(ctx sdk.Context, lenderAddr string, AssetID, Poo
 		CPoolName:           pool.CPoolName,
 	}
 	k.UpdateLendStats(ctx, AssetID, PoolID, AmountIn.Amount, true)
-	k.SetUserLendIDHistory(ctx, lendPos.ID)
+	k.SetUserLendIDCounter(ctx, lendPos.ID)
 	k.SetLend(ctx, lendPos)
-	k.SetLendForAddressByAsset(ctx, addr, lendPos.AssetID, lendPos.ID, lendPos.PoolID)
-	err = k.UpdateUserLendIDMapping(ctx, lenderAddr, lendPos.ID, true)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDByOwnerAndPoolMapping(ctx, lenderAddr, lendPos.ID, lendPos.PoolID, true)
-	if err != nil {
-		return err
-	}
-	err = k.UpdateLendIDsMapping(ctx, lendPos.ID, true)
-	if err != nil {
-		return err
-	}
+
+	var mappingData types.UserAssetLendBorrowMapping
+	mappingData.Owner = lendPos.Owner
+	mappingData.LendId = lendPos.ID
+	mappingData.PoolId = PoolID
+	k.SetUserLendBorrowMapping(ctx, mappingData)
+
+	poolAssetLBMappingData, _ := k.GetAssetStatsByPoolIDAndAssetID(ctx, PoolID, AssetID)
+	poolAssetLBMappingData.LendIds = append(poolAssetLBMappingData.LendIds, lendPos.ID)
+	k.SetAssetStatsByPoolIDAndAssetID(ctx, poolAssetLBMappingData)
 
 	err = k.BorrowAsset(ctx, lenderAddr, lendPos.ID, PairID, IsStableBorrow, cToken, AmountOut)
 	if err != nil {
@@ -1376,9 +1399,9 @@ func (k Keeper) FundModAcc(ctx sdk.Context, moduleName string, assetID uint64, l
 		return types.ErrBadOfferCoinType
 	}
 
-	assetRatesStat, found := k.GetAssetRatesStats(ctx, assetID)
+	assetRatesStat, found := k.GetAssetRatesParams(ctx, assetID)
 	if !found {
-		return sdkerrors.Wrap(types.ErrorAssetRatesStatsNotFound, strconv.FormatUint(assetID, 10))
+		return sdkerrors.Wrap(types.ErrorAssetRatesParamsNotFound, strconv.FormatUint(assetID, 10))
 	}
 	cAsset, found := k.GetAsset(ctx, assetRatesStat.CAssetID)
 	if !found {
@@ -1389,14 +1412,6 @@ func (k Keeper) FundModAcc(ctx sdk.Context, moduleName string, assetID uint64, l
 	err := k.MintCoin(ctx, moduleName, cToken)
 	if err != nil {
 		return err
-	}
-	depositStats, _ := k.GetDepositStats(ctx)
-	for _, v := range depositStats.BalanceStats {
-		if v.AssetID == assetID {
-			v.Amount = v.Amount.Add(payment.Amount)
-			k.SetDepositStats(ctx, depositStats)
-
-		}
 	}
 
 	return nil
@@ -1416,52 +1431,44 @@ func (k Keeper) Store(ctx sdk.Context) sdk.KVStore {
 
 func (k Keeper) CreteNewBorrow(ctx sdk.Context, liqBorrow liquidationtypes.LockedVault) {
 	kind := liqBorrow.GetBorrowMetaData()
-	borrowID := k.GetUserBorrowIDHistory(ctx)
-	pair, _ := k.GetLendPair(ctx, liqBorrow.ExtendedPairId)
-	AssetOut, _ := k.GetAsset(ctx, pair.AssetOut)
-	assetInRatesStats, _ := k.GetAssetRatesStats(ctx, pair.AssetIn)
-	AssetRatesStats, _ := k.GetAssetRatesStats(ctx, pair.AssetIn)
-	cAssetIn, _ := k.GetAsset(ctx, AssetRatesStats.CAssetID)
-	AssetOutPool, _ := k.GetPool(ctx, pair.AssetOutPoolID)
-	lendPos, _ := k.GetLend(ctx, kind.LendingId)
-	AssetInPool, _ := k.GetPool(ctx, lendPos.PoolID)
-	assetStats, _ := k.AssetStatsByPoolIDAndAssetID(ctx, pair.AssetOut, pair.AssetOutPoolID)
-	reserveGlobalIndex, err := k.GetReserveRate(ctx, pair.AssetOutPoolID, pair.AssetOut)
-	if err != nil {
-		reserveGlobalIndex = sdk.OneDec()
-	}
-	globalIndex := assetStats.BorrowApr
 
-	borrowPos := types.BorrowAsset{
-		ID:                  borrowID + 1,
-		LendingID:           kind.LendingId,
-		PairID:              liqBorrow.ExtendedPairId,
-		AmountIn:            sdk.NewCoin(cAssetIn.Denom, liqBorrow.AmountIn),
-		AmountOut:           sdk.NewCoin(AssetOut.Denom, liqBorrow.AmountOut),
-		BridgedAssetAmount:  kind.BridgedAssetAmount,
-		IsStableBorrow:      kind.IsStableBorrow,
-		StableBorrowRate:    kind.StableBorrowRate,
-		BorrowingTime:       ctx.BlockTime(),
-		UpdatedAmountOut:    liqBorrow.AmountOut,
-		GlobalIndex:         globalIndex,
-		ReserveGlobalIndex:  reserveGlobalIndex,
-		LastInteractionTime: ctx.BlockTime(),
-		CPoolName:           AssetOutPool.CPoolName,
+	pair, _ := k.GetLendPair(ctx, liqBorrow.ExtendedPairId)
+	lendPos, _ := k.GetLend(ctx, kind.LendingId)
+	borrowPos, _ := k.GetBorrow(ctx, liqBorrow.OriginalVaultId)
+
+	AssetInPool, _ := k.GetPool(ctx, lendPos.PoolID)
+	AssetOutPool, _ := k.GetPool(ctx, pair.AssetOutPoolID)
+	assetInRatesStats, _ := k.GetAssetRatesParams(ctx, pair.AssetIn)
+	borrowPos.IsLiquidated = false
+
+	amoutOutDiff := borrowPos.AmountOut.Amount.Sub(liqBorrow.AmountOut)
+	borrowPos.AmountOut.Amount = liqBorrow.AmountOut
+	borrowPos.AmountIn.Amount = liqBorrow.AmountIn
+
+	var firstTransitAssetID, secondTransitAssetID uint64
+	for _, data := range AssetInPool.AssetData {
+		if data.AssetTransitType == 2 {
+			firstTransitAssetID = data.AssetID
+		}
+		if data.AssetTransitType == 3 {
+			secondTransitAssetID = data.AssetID
+		}
 	}
+
 	// Adjusting bridged asset qty after auctions
 	if !kind.BridgedAssetAmount.Amount.Equal(sdk.ZeroInt()) {
 		priceAssetIn, _ := k.GetPriceForAsset(ctx, pair.AssetIn)
 		adjustedBridgedAssetAmt := borrowPos.AmountIn.Amount.ToDec().Mul(assetInRatesStats.Ltv)
 		amtIn := adjustedBridgedAssetAmt.TruncateInt().Mul(sdk.NewIntFromUint64(priceAssetIn))
-		priceFirstBridgedAsset, _ := k.GetPriceForAsset(ctx, AssetInPool.FirstBridgedAssetID)
-		priceSecondBridgedAsset, _ := k.GetPriceForAsset(ctx, AssetInPool.SecondBridgedAssetID)
-		firstBridgedAsset, _ := k.GetAsset(ctx, AssetInPool.FirstBridgedAssetID)
+		priceFirstBridgedAsset, _ := k.GetPriceForAsset(ctx, firstTransitAssetID)
+		priceSecondBridgedAsset, _ := k.GetPriceForAsset(ctx, secondTransitAssetID)
+		firstBridgedAsset, _ := k.GetAsset(ctx, firstTransitAssetID)
 
 		if kind.BridgedAssetAmount.Denom == firstBridgedAsset.Denom {
 			firstBridgedAssetQty := amtIn.Quo(sdk.NewIntFromUint64(priceFirstBridgedAsset))
 			diff := borrowPos.BridgedAssetAmount.Amount.Sub(firstBridgedAssetQty)
 			if diff.GT(sdk.ZeroInt()) {
-				err = k.SendCoinFromModuleToModule(ctx, AssetOutPool.ModuleName, AssetInPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, diff)))
+				err := k.SendCoinFromModuleToModule(ctx, AssetOutPool.ModuleName, AssetInPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, diff)))
 				if err != nil {
 					return
 				}
@@ -1469,7 +1476,7 @@ func (k Keeper) CreteNewBorrow(ctx sdk.Context, liqBorrow liquidationtypes.Locke
 			} else {
 				newDiff := firstBridgedAssetQty.Sub(borrowPos.BridgedAssetAmount.Amount)
 				if newDiff.GT(sdk.ZeroInt()) {
-					err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, newDiff)))
+					err := k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, newDiff)))
 					if err != nil {
 						return
 					}
@@ -1480,7 +1487,7 @@ func (k Keeper) CreteNewBorrow(ctx sdk.Context, liqBorrow liquidationtypes.Locke
 			secondBridgedAssetQty := amtIn.Quo(sdk.NewIntFromUint64(priceSecondBridgedAsset))
 			diff := borrowPos.BridgedAssetAmount.Amount.Sub(secondBridgedAssetQty)
 			if diff.GT(sdk.ZeroInt()) {
-				err = k.SendCoinFromModuleToModule(ctx, AssetOutPool.ModuleName, AssetInPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, diff)))
+				err := k.SendCoinFromModuleToModule(ctx, AssetOutPool.ModuleName, AssetInPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, diff)))
 				if err != nil {
 					return
 				}
@@ -1488,7 +1495,7 @@ func (k Keeper) CreteNewBorrow(ctx sdk.Context, liqBorrow liquidationtypes.Locke
 			} else {
 				newDiff := secondBridgedAssetQty.Sub(borrowPos.BridgedAssetAmount.Amount)
 				if newDiff.GT(sdk.ZeroInt()) {
-					err = k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, newDiff)))
+					err := k.SendCoinFromModuleToModule(ctx, AssetInPool.ModuleName, AssetOutPool.ModuleName, sdk.NewCoins(sdk.NewCoin(borrowPos.BridgedAssetAmount.Denom, newDiff)))
 					if err != nil {
 						return
 					}
@@ -1497,30 +1504,9 @@ func (k Keeper) CreteNewBorrow(ctx sdk.Context, liqBorrow liquidationtypes.Locke
 			}
 		}
 	}
-	OriginalBorrowID := liqBorrow.OriginalVaultId
-	err = k.UpdateLendIDToBorrowIDMapping(ctx, kind.LendingId, OriginalBorrowID, false)
-	if err != nil {
-		return
-	}
-	k.UpdateBorrowStats(ctx, pair, borrowPos, borrowPos.AmountOut.Amount, true)
+
+	k.UpdateBorrowStats(ctx, pair, borrowPos.IsStableBorrow, amoutOutDiff, false)
 	k.SetBorrow(ctx, borrowPos)
-	k.SetUserBorrowIDHistory(ctx, borrowPos.ID)
-	err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, true)
-	if err != nil {
-		return
-	}
-	err = k.UpdateBorrowIDByOwnerAndPoolMapping(ctx, lendPos.Owner, borrowPos.ID, pair.AssetOutPoolID, true)
-	if err != nil {
-		return
-	}
-	err = k.UpdateBorrowIdsMapping(ctx, borrowPos.ID, true)
-	if err != nil {
-		return
-	}
-	err = k.UpdateUserBorrowIDMapping(ctx, lendPos.Owner, borrowPos.ID, true)
-	if err != nil {
-		return
-	}
 }
 
 func (k Keeper) MsgCalculateBorrowInterest(ctx sdk.Context, borrowerAddr string, borrowID uint64) error {
@@ -1538,7 +1524,7 @@ func (k Keeper) MsgCalculateBorrowInterest(ctx sdk.Context, borrowerAddr string,
 		return esmtypes.ErrCircuitBreakerEnabled
 	}
 	if lendPos.Owner != borrowerAddr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	indexGlobalCurrent, reserveGlobalIndex, err := k.IterateBorrow(ctx, borrowID)
 	if err != nil {
@@ -1573,7 +1559,7 @@ func (k Keeper) MsgCalculateLendRewards(ctx sdk.Context, addr string, lendID uin
 	lendPos.GlobalIndex = indexGlobalCurrent
 	lendPos.LastInteractionTime = ctx.BlockTime()
 	if lendPos.Owner != addr {
-		return types.ErrLendAccessUnauthorised
+		return types.ErrLendAccessUnauthorized
 	}
 	k.SetLend(ctx, lendPos)
 	return nil

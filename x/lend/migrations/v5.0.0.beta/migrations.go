@@ -6,6 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	protobuftypes "github.com/gogo/protobuf/types"
 )
 
 //MigrationHandler codes goes here
@@ -16,21 +17,21 @@ func MigrateStore(ctx sdk.Context, storeKey storetypes.StoreKey, cdc codec.Binar
 	if err != nil {
 		return err
 	}
-	err = migrateValuesBorrow(store, cdc)
-	if err != nil {
-		return err
-	}
+	//err = migrateValuesBorrow(store, cdc)
+	//if err != nil {
+	//	return err
+	//}
 
 	return nil
 }
 func migrateValuesLend(store sdk.KVStore, cdc codec.BinaryCodec) error {
 
-	lendIDKey := lendtypes.LendsKey
-	lendIDValue := store.Get(lendIDKey)
-	var usersLendMap lendtypes.LendMapping
-	cdc.MustUnmarshal(lendIDValue, &usersLendMap)
+	keyCounter := lendtypes.LendCounterIDPrefix
+	value := store.Get(keyCounter)
+	var counter protobuftypes.UInt64Value
+	cdc.MustUnmarshal(value, &counter)
 
-	for _, ID := range usersLendMap.LendIDs {
+	for ID := uint64(1); ID <= counter.GetValue(); ID++ {
 		key := append(lendtypes.LendUserPrefix, sdk.Uint64ToBigEndian(ID)...)
 		oldVal := store.Get(key)
 
@@ -67,49 +68,50 @@ func migrateValueLend(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
 	return newVal
 }
 
-func migrateValuesBorrow(store sdk.KVStore, cdc codec.BinaryCodec) error {
-
-	borrowIDKey := lendtypes.BorrowsKey
-	lendIDValue := store.Get(borrowIDKey)
-	var usersBorrowMap lendtypes.BorrowMapping
-	cdc.MustUnmarshal(lendIDValue, &usersBorrowMap)
-
-	for _, ID := range usersBorrowMap.BorrowIDs {
-		key := append(lendtypes.BorrowPairKeyPrefix, sdk.Uint64ToBigEndian(ID)...)
-		oldVal := store.Get(key)
-
-		newVal := migrateValueBorrow(cdc, oldVal)
-		store.Delete(key) // Delete old key, value
-		store.Set(key, newVal)
-	}
-	return nil
-}
-
-func migrateValueBorrow(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
-
-	// convert oldVal into borrow type of previous version
-	// use oldVal to create new borrow of updated struct
-
-	var borrow lendtypes.BorrowAsset
-	cdc.MustUnmarshal(oldVal, &borrow)
-
-	newBorrow := lendtypes.BorrowAsset{
-		ID:                  borrow.ID,
-		LendingID:           borrow.LendingID,
-		IsStableBorrow:      borrow.IsStableBorrow,
-		PairID:              borrow.PairID,
-		AmountIn:            borrow.AmountIn,
-		AmountOut:           borrow.AmountOut,
-		BridgedAssetAmount:  borrow.BridgedAssetAmount,
-		BorrowingTime:       borrow.BorrowingTime,
-		StableBorrowRate:    borrow.StableBorrowRate,
-		UpdatedAmountOut:    borrow.UpdatedAmountOut,
-		GlobalIndex:         borrow.GlobalIndex,
-		ReserveGlobalIndex:  borrow.ReserveGlobalIndex,
-		LastInteractionTime: borrow.LastInteractionTime,
-		CPoolName:           borrow.CPoolName,
-	}
-
-	newVal = cdc.MustMarshal(&newBorrow)
-	return newVal
-}
+//
+//func migrateValuesBorrow(store sdk.KVStore, cdc codec.BinaryCodec) error {
+//
+//	borrowIDKey := lendtypes.BorrowsKey
+//	lendIDValue := store.Get(borrowIDKey)
+//	var usersBorrowMap lendtypes.BorrowMapping
+//	cdc.MustUnmarshal(lendIDValue, &usersBorrowMap)
+//
+//	for _, ID := range usersBorrowMap.BorrowIDs {
+//		key := append(lendtypes.BorrowPairKeyPrefix, sdk.Uint64ToBigEndian(ID)...)
+//		oldVal := store.Get(key)
+//
+//		newVal := migrateValueBorrow(cdc, oldVal)
+//		store.Delete(key) // Delete old key, value
+//		store.Set(key, newVal)
+//	}
+//	return nil
+//}
+//
+//func migrateValueBorrow(cdc codec.BinaryCodec, oldVal []byte) (newVal []byte) {
+//
+//	// convert oldVal into borrow type of previous version
+//	// use oldVal to create new borrow of updated struct
+//
+//	var borrow lendtypes.BorrowAsset
+//	cdc.MustUnmarshal(oldVal, &borrow)
+//
+//	newBorrow := lendtypes.BorrowAsset{
+//		ID:                  borrow.ID,
+//		LendingID:           borrow.LendingID,
+//		IsStableBorrow:      borrow.IsStableBorrow,
+//		PairID:              borrow.PairID,
+//		AmountIn:            borrow.AmountIn,
+//		AmountOut:           borrow.AmountOut,
+//		BridgedAssetAmount:  borrow.BridgedAssetAmount,
+//		BorrowingTime:       borrow.BorrowingTime,
+//		StableBorrowRate:    borrow.StableBorrowRate,
+//		InterestAccumulated: borrow.InterestAccumulated,
+//		GlobalIndex:         borrow.GlobalIndex,
+//		ReserveGlobalIndex:  borrow.ReserveGlobalIndex,
+//		LastInteractionTime: borrow.LastInteractionTime,
+//		CPoolName:           borrow.CPoolName,
+//	}
+//
+//	newVal = cdc.MustMarshal(&newBorrow)
+//	return newVal
+//}
