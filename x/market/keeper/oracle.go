@@ -161,7 +161,7 @@ func (k Keeper) GetTwa(ctx sdk.Context, id uint64) (twa types.TimeWeightedAverag
 		twa.Twa = 11632845
 	}
 	if id == 2 {
-		twa.Twa = 140530
+		twa.Twa = 14053
 	}
 	if id == 3 {
 		twa.Twa = 1000000
