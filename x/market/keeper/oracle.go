@@ -129,7 +129,7 @@ func (k Keeper) CalcAssetPrice(ctx sdk.Context, id uint64, amt sdk.Int) (price s
 		rate = 11632845
 	}
 	if id == 2 {
-		rate = 14053
+		rate = 110000
 	}
 	if id == 3 {
 		rate = 1000000
@@ -161,7 +161,7 @@ func (k Keeper) GetTwa(ctx sdk.Context, id uint64) (twa types.TimeWeightedAverag
 		twa.Twa = 11632845
 	}
 	if id == 2 {
-		twa.Twa = 140530
+		twa.Twa = 110000
 	}
 	if id == 3 {
 		twa.Twa = 1000000
