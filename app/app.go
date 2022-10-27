@@ -1150,8 +1150,8 @@ func (a *App) registerUpgradeHandlers() {
 	)*/
 
 	a.UpgradeKeeper.SetUpgradeHandler(
-		tv5_0_0.UpgradeNameBeta,
-		tv5_0_0.CreateUpgradeHandlerV5Beta(a.mm, a.configurator, a.VaultKeeper, a.LendKeeper),
+		tv5_0_0.UpgradeNameBetaV51,
+		tv5_0_0.CreateUpgradeHandlerV51Beta(a.mm, a.configurator),
 	)
 
 	// When a planned update height is reached, the old binary will panic
@@ -1229,6 +1229,7 @@ func upgradeHandlers(upgradeInfo storetypes.UpgradeInfo, a *App, storeUpgrades *
 		storeUpgrades = &storetypes.StoreUpgrades{}
 	case upgradeInfo.Name == tv4_0_0.UpgradeNameV4_4_0 && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):
 	case upgradeInfo.Name == tv5_0_0.UpgradeNameBeta && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):
+	case upgradeInfo.Name == tv5_0_0.UpgradeNameBetaV51 && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):
 
 	// prepare store for main net upgrade v5.0.0
 	case upgradeInfo.Name == mv5.UpgradeName && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):

@@ -19,11 +19,11 @@ func CreateUpgradeHandlerV5Beta(
 	return func(ctx sdk.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 		// This change is only for testnet upgrade
 
-		err2 := MigrateData(ctx, lendKeeper)
-		if err2 != nil {
-			ctx.Logger().Error("error in Migrate Data")
-		}
-		SetVaultLengthCounter(ctx, vaultkeeper)
+		//err2 := MigrateData(ctx, lendKeeper)
+		//if err2 != nil {
+		//	ctx.Logger().Error("error in Migrate Data")
+		//}
+		//SetVaultLengthCounter(ctx, vaultkeeper)
 		return fromVM, nil
 	}
 }
@@ -39,4 +39,17 @@ func SetVaultLengthCounter(
 		}
 	}
 	vaultkeeper.SetLengthOfVault(ctx, count)
+}
+
+func CreateUpgradeHandlerV51Beta(
+	mm *module.Manager,
+	configurator module.Configurator,
+) upgradetypes.UpgradeHandler {
+	return func(ctx sdk.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		newVM, err := mm.RunMigrations(ctx, configurator, fromVM)
+		if err != nil {
+			return newVM, err
+		}
+		return fromVM, nil
+	}
 }
