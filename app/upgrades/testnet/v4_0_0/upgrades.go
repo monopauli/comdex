@@ -125,3 +125,20 @@ func CreateUpgradeHandlerV430(
 		return newVM, err
 	}
 }
+
+// CreateUpgradeHandler creates an SDK upgrade handler for v4_3_1
+func CreateUpgradeHandlerV431(
+	mm *module.Manager,
+	configurator module.Configurator,
+) upgradetypes.UpgradeHandler {
+	return func(ctx sdk.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		// This change is only for testnet upgrade
+
+		newVM, err := mm.RunMigrations(ctx, configurator, fromVM)
+
+		if err != nil {
+			return newVM, err
+		}
+		return newVM, err
+	}
+}
