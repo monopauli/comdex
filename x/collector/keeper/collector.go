@@ -752,10 +752,10 @@ func (k Keeper) LockerIterateRewards(ctx sdk.Context, collectorLsr sdk.Dec, coll
 				newRewardDec := sdk.NewDec(newReward.Int64())
 				lockerRewardsTracker.RewardsAccumulated = lockerRewardsTracker.RewardsAccumulated.Sub(newRewardDec)
 				k.rewards.SetLockerRewardTracker(ctx, lockerRewardsTracker)
-				netFeeCollectedData, found := k.GetNetFeeCollectedData(ctx, appID, lockerData.AssetDepositId)
-				if !found {
-					continue
-				}
+				// netFeeCollectedData, found := k.GetNetFeeCollectedData(ctx, appID, lockerData.AssetDepositId)
+				// if !found {
+				// 	continue
+				// }
 				err = k.DecreaseNetFeeCollectedData(ctx, appID, lockerData.AssetDepositId, newReward)
 				if err != nil {
 					continue
