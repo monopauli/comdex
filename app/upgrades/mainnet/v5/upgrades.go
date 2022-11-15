@@ -39,9 +39,18 @@ func InitializeStates(
 	rewardsKeeper rewardskeeper.Keeper,
 	liquidationKeeper liquidationkeeper.Keeper,
 ) {
+	genesisToken := assettypes.MintGenesisToken{
+		AssetId:       9,
+		GenesisSupply: sdk.NewIntFromUint64(500000000000000),
+		IsGovToken:    true,
+		Recipient:     "comdex1tadhnvwa0sqzwr3m60f7dsjw4ua77qsz3ptcyw",
+	}
+	var gToken []assettypes.MintGenesisToken
+	gToken = append(gToken, genesisToken)
+
 	apps := []assettypes.AppData{
 		{Name: "cswap", ShortName: "cswap", MinGovDeposit: sdk.ZeroInt(), GovTimeInSeconds: 0, GenesisToken: []assettypes.MintGenesisToken{}},
-		{Name: "harbor", ShortName: "hbr", MinGovDeposit: sdk.NewInt(10000000), GovTimeInSeconds: 300, GenesisToken: []assettypes.MintGenesisToken{}},
+		{Name: "harbor", ShortName: "hbr", MinGovDeposit: sdk.NewInt(10000000000), GovTimeInSeconds: 259200, GenesisToken: gToken},
 	}
 	for _, app := range apps {
 		err := assetKeeper.AddAppRecords(ctx, app)
@@ -49,17 +58,19 @@ func InitializeStates(
 			panic(err)
 		}
 	}
+	assetKeeper.SetGenesisTokenForApp(ctx, 2, 9)
 
 	assets := []assettypes.Asset{
-		{Name: "ATOM", Denom: "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
+		{Name: "ATOM", Denom: "ibc/961FA3E54F5DCCA639F37A7C45F7BBE41815579EF1513B5AFBEFCFEB8F256352", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
 		{Name: "CMDX", Denom: "ucmdx", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
 		{Name: "CMST", Denom: "ucmst", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: true, IsCdpMintable: true},
-		{Name: "OSMO", Denom: "ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
+		{Name: "OSMO", Denom: "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
 		{Name: "CATOM", Denom: "ucatom", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: false, IsCdpMintable: true},
 		{Name: "CCMDX", Denom: "uccmdx", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: false, IsCdpMintable: true},
 		{Name: "CCMST", Denom: "uccmst", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: false, IsCdpMintable: true},
 		{Name: "COSMO", Denom: "ucosmo", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: false, IsCdpMintable: true},
 		{Name: "HARBOR", Denom: "uharbor", Decimals: sdk.NewInt(1000000), IsOnChain: true, IsOraclePriceRequired: false, IsCdpMintable: false},
+		{Name: "AXLUSDC", Denom: "ibc/E1616E7C19EA474C565737709A628D6F8A23FF9D3E9A7A6871306CF5E0A5341E", Decimals: sdk.NewInt(1000000), IsOnChain: false, IsOraclePriceRequired: true, IsCdpMintable: false},
 	}
 
 	for _, asset := range assets {
@@ -73,6 +84,7 @@ func InitializeStates(
 		{AssetIn: 1, AssetOut: 3},
 		{AssetIn: 2, AssetOut: 3},
 		{AssetIn: 4, AssetOut: 3},
+		{AssetIn: 10, AssetOut: 3},
 	}
 
 	for _, pair := range pairs {
@@ -85,49 +97,9 @@ func InitializeStates(
 	// add extended pairs
 	extPairs := []*bindings.MsgAddExtendedPairsVault{
 		{
-			AppID: 2, PairID: 2, StabilityFee: sdk.MustNewDecFromStr("0.045"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("2.0"),
-			PairName: "CMDX-A", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 2, StabilityFee: sdk.MustNewDecFromStr("0.035"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("2.4"),
-			PairName: "CMDX-B", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 2, StabilityFee: sdk.MustNewDecFromStr("0.025"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("2.8"),
-			PairName: "CMDX-C", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 3, StabilityFee: sdk.MustNewDecFromStr("0.045"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("1.6"),
-			PairName: "OSMO-A", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 3, StabilityFee: sdk.MustNewDecFromStr("0.035"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("1.9"),
-			PairName: "OSMO-B", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 3, StabilityFee: sdk.MustNewDecFromStr("0.025"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("2.2"),
-			PairName: "OSMO-C", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 1, StabilityFee: sdk.MustNewDecFromStr("0.045"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("1.4"),
-			PairName: "ATOM-A", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 1, StabilityFee: sdk.MustNewDecFromStr("0.035"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("1.7"),
-			PairName: "ATOM-B", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
-		},
-		{
-			AppID: 2, PairID: 1, StabilityFee: sdk.MustNewDecFromStr("0.025"), ClosingFee: sdk.MustNewDecFromStr("0.005"), LiquidationPenalty: sdk.MustNewDecFromStr("0.15"),
-			DrawDownFee: sdk.MustNewDecFromStr("0.005"), IsVaultActive: true, DebtCeiling: sdk.NewInt(100000000000000), DebtFloor: sdk.NewInt(100000000), IsStableMintVault: false, MinCr: sdk.MustNewDecFromStr("2.0"),
-			PairName: "ATOM-C", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 100000,
+			AppID: 2, PairID: 4, StabilityFee: sdk.ZeroDec(), ClosingFee: sdk.ZeroDec(), LiquidationPenalty: sdk.ZeroDec(),
+			DrawDownFee: sdk.MustNewDecFromStr("0.001"), IsVaultActive: true, DebtCeiling: sdk.NewInt(40000000000000), DebtFloor: sdk.NewInt(1000000), IsStableMintVault: true, MinCr: sdk.MustNewDecFromStr("1"),
+			PairName: "AXL-USDC-CMST", AssetOutOraclePrice: false, AssetOutPrice: 1000000, MinUsdValueLeft: 10000000000,
 		},
 	}
 
@@ -145,7 +117,7 @@ func InitializeStates(
 		SurplusThreshold: sdk.NewInt(50000000000),
 		DebtThreshold:    sdk.NewInt(0),
 		LockerSavingRate: sdk.MustNewDecFromStr("0.00"),
-		LotSize:          sdk.NewInt(10000),
+		LotSize:          sdk.NewInt(10000000000),
 		BidFactor:        sdk.MustNewDecFromStr("0.01"),
 		DebtLotSize:      sdk.NewInt(1000000000000),
 	}
@@ -230,8 +202,10 @@ func InitializeStates(
 	}
 
 	liquidityPairs := []LiquidityPair{
-		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ibc/C4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9", QuoteCoinDenom: "ucmdx"},
-		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518", QuoteCoinDenom: "ucmdx"},
+		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ucmdx", QuoteCoinDenom: "ibc/961FA3E54F5DCCA639F37A7C45F7BBE41815579EF1513B5AFBEFCFEB8F256352"},
+		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ucmdx", QuoteCoinDenom: "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B"},
+		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ucmdx", QuoteCoinDenom: "ucmst"},
+		{AppID: 1, From: "comdex12gfx7e3p08ljrwhq4lxz0360czcv9jpzajlytv", BaseCoinDenom: "ucmdx", QuoteCoinDenom: "uharbor"},
 	}
 
 	for _, lpair := range liquidityPairs {
