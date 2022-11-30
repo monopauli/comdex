@@ -7,15 +7,27 @@ package v6
 
 var recordsJSONString = `[
  {
-    "address": "comdex1tq2gr3vv6x30g607r5pf6jjen50fkft6u56zw8",
+    "address": "comdex1khmh8uy73y2ywvn38fwrkaff0cdah2wqhf4zet",
     "amount": "50000000"
   },
   {
-    "address": "comdex1u7qz9yruwpqnq8xkaahazq4z54vf5w58zm4l83",
+    "address": "comdex1s6pkt43rjzjqpcwaz6se9ajzr2wq7kfwyhy3nl",
     "amount": "5000000"
   },
   {
-    "address": "comdex1lmjtlmmqvxgnve23nw4xvce0d2xy0c24qk8ss9",
-    "amount": "10000000"
+    "address": "comdex1phq8yxpagpcmtdv7jymvvyxeekk5y2nx5arlfu",
+    "amount": "5000000"
+  },
+  {
+    "address": "comdex1ejkheua45564tk6wkytg3e6h57kq8eq6svj9zj",
+    "amount": "5000000"
+  },
+  {
+    "address": "comdex10gh5u4qey4xxewyjwcq6jcp0h8vfqusw3y7nku",
+    "amount": "5000000"
+  },
+  {
+    "address": "comdex1t4f654txl5hdzghz932cesjz47j7088kka96m9",
+    "amount": "5000000"
   }
 ]`
