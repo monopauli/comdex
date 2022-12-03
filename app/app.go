@@ -1249,25 +1249,25 @@ func upgradeHandlers(upgradeInfo storetypes.UpgradeInfo, a *App, storeUpgrades *
 		}
 	case upgradeInfo.Name == mv6.UpgradeName && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):
 		storeUpgrades = &storetypes.StoreUpgrades{
-			Added: []string{
-				assettypes.ModuleName,
-				auctiontypes.ModuleName,
-				bandoraclemoduletypes.ModuleName,
-				collectortypes.ModuleName,
-				esmtypes.ModuleName,
-				liquidationtypes.ModuleName,
-				liquiditytypes.ModuleName,
-				lockertypes.ModuleName,
-				markettypes.ModuleName,
-				rewardstypes.ModuleName,
-				tokenminttypes.ModuleName,
-				vaulttypes.ModuleName,
-				lendtypes.ModuleName,
-				feegrant.ModuleName,
-				icacontrollertypes.StoreKey,
-				icahosttypes.StoreKey,
-				authz.ModuleName,
-			},
+			//Added: []string{
+			//	assettypes.ModuleName,
+			//	auctiontypes.ModuleName,
+			//	bandoraclemoduletypes.ModuleName,
+			//	collectortypes.ModuleName,
+			//	esmtypes.ModuleName,
+			//	liquidationtypes.ModuleName,
+			//	liquiditytypes.ModuleName,
+			//	lockertypes.ModuleName,
+			//	markettypes.ModuleName,
+			//	rewardstypes.ModuleName,
+			//	tokenminttypes.ModuleName,
+			//	vaulttypes.ModuleName,
+			//	lendtypes.ModuleName,
+			//	feegrant.ModuleName,
+			//	icacontrollertypes.StoreKey,
+			//	icahosttypes.StoreKey,
+			//	authz.ModuleName,
+			//},
 		}
 	}
 
