@@ -1203,7 +1203,7 @@ func (a *App) ModuleAccountsPermissions() map[string][]string {
 func (a *App) registerUpgradeHandlers() {
 	a.UpgradeKeeper.SetUpgradeHandler(
 		mv6.UpgradeName,
-		mv6.CreateUpgradeHandler(a.mm, a.configurator, a.SlashingKeeper, a.MintKeeper, a.BankKeeper, a.StakingKeeper, a.AssetKeeper, a.LendKeeper),
+		mv6.CreateUpgradeHandler(a.mm, a.configurator, a.WasmKeeper, a.SlashingKeeper, a.MintKeeper, a.BankKeeper, a.StakingKeeper, a.AssetKeeper, a.LiquidityKeeper, a.CollectorKeeper, a.AuctionKeeper, a.LockerKeeper, a.Rewardskeeper, a.LiquidationKeeper, a.LendKeeper),
 	)
 	// When a planned update height is reached, the old binary will panic
 	// writing on disk the height and name of the update that triggered it
@@ -1249,9 +1249,24 @@ func upgradeHandlers(upgradeInfo storetypes.UpgradeInfo, a *App, storeUpgrades *
 		}
 	case upgradeInfo.Name == mv6.UpgradeName && !a.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height):
 		storeUpgrades = &storetypes.StoreUpgrades{
-			Deleted: []string{"lendV1"},
 			Added: []string{
+				assettypes.ModuleName,
+				auctiontypes.ModuleName,
+				bandoraclemoduletypes.ModuleName,
+				collectortypes.ModuleName,
+				esmtypes.ModuleName,
+				liquidationtypes.ModuleName,
+				liquiditytypes.ModuleName,
+				lockertypes.ModuleName,
+				markettypes.ModuleName,
+				rewardstypes.ModuleName,
+				tokenminttypes.ModuleName,
+				vaulttypes.ModuleName,
 				lendtypes.ModuleName,
+				feegrant.ModuleName,
+				icacontrollertypes.StoreKey,
+				icahosttypes.StoreKey,
+				authz.ModuleName,
 			},
 		}
 	}

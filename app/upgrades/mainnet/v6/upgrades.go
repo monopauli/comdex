@@ -1,10 +1,19 @@
 package v6
 
 import (
+	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	v5 "github.com/comdex-official/comdex/app/upgrades/mainnet/v5"
 	assetkeeper "github.com/comdex-official/comdex/x/asset/keeper"
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
+	auctionkeeper "github.com/comdex-official/comdex/x/auction/keeper"
+	collectorkeeper "github.com/comdex-official/comdex/x/collector/keeper"
 	lendkeeper "github.com/comdex-official/comdex/x/lend/keeper"
 	"github.com/comdex-official/comdex/x/lend/types"
+	liquidationkeeper "github.com/comdex-official/comdex/x/liquidation/keeper"
+	liquiditykeeper "github.com/comdex-official/comdex/x/liquidity/keeper"
+	lockerkeeper "github.com/comdex-official/comdex/x/locker/keeper"
+	rewardskeeper "github.com/comdex-official/comdex/x/rewards/keeper"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
@@ -221,11 +230,18 @@ func InitializeLendStates(
 func CreateUpgradeHandler(
 	mm *module.Manager,
 	configurator module.Configurator,
+	wasmKeeper wasmkeeper.Keeper,
 	slashingkeeper slashingkeeper.Keeper,
 	mintkeeper mintkeeper.Keeper,
 	bankkeeper bankkeeper.Keeper,
 	stakingkeeper stakingkeeper.Keeper,
 	assetKeeper assetkeeper.Keeper,
+	liquidityKeeper liquiditykeeper.Keeper,
+	collectorKeeper collectorkeeper.Keeper,
+	auctionKeeper auctionkeeper.Keeper,
+	lockerKeeper lockerkeeper.Keeper,
+	rewardsKeeper rewardskeeper.Keeper,
+	liquidationKeeper liquidationkeeper.Keeper,
 	lendKeeper lendkeeper.Keeper,
 ) upgradetypes.UpgradeHandler {
 	return func(ctx sdk.Context, _ upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
@@ -244,6 +260,11 @@ func CreateUpgradeHandler(
 
 		//ctx.Logger().Info("Running module migrations for v6.0.0...")
 		newVM, err := mm.RunMigrations(ctx, configurator, fromVM)
+		v5.InitializeStates(ctx, assetKeeper, liquidityKeeper, collectorKeeper, auctionKeeper, lockerKeeper, rewardsKeeper, liquidationKeeper)
+		wasmParams := wasmKeeper.GetParams(ctx)
+		wasmParams.CodeUploadAccess = wasmtypes.AllowNobody
+		wasmKeeper.SetParams(ctx, wasmParams)
+
 		InitializeLendStates(ctx, assetKeeper, lendKeeper)
 		return newVM, err
 	}
