@@ -507,3 +507,47 @@ func (msg *MsgCalculateInterestAndRewards) GetSignBytes() []byte {
 	bz := ModuleCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
+
+func NewMsgFundModuleAccountsForInterest(poolID, assetID uint64, lender string, amount sdk.Coin) *MsgFundModuleAccountsForInterest {
+	return &MsgFundModuleAccountsForInterest{
+		PoolId:  poolID,
+		AssetId: assetID,
+		Lender:  lender,
+		Amount:  amount,
+	}
+}
+
+func (msg MsgFundModuleAccountsForInterest) Route() string { return ModuleName }
+func (msg MsgFundModuleAccountsForInterest) Type() string  { return TypeFundModuleAccountRequest }
+
+func (msg *MsgFundModuleAccountsForInterest) ValidateBasic() error {
+	_, err := sdk.AccAddressFromBech32(msg.GetLender())
+	if err != nil {
+		return err
+	}
+	if msg.PoolId == 0 {
+		return fmt.Errorf("pool id should not be 0: %d ", msg.PoolId)
+	}
+	if msg.AssetId == 0 {
+		return fmt.Errorf("asset id should not be 0: %d ", msg.AssetId)
+	}
+	if msg.Amount.Amount.IsNegative() || msg.Amount.Amount.IsZero() {
+		return fmt.Errorf("invalid coin amount: %s < 0", msg.Amount.Amount)
+	}
+
+	return nil
+}
+
+func (msg *MsgFundModuleAccountsForInterest) GetSigners() []sdk.AccAddress {
+	lender, err := sdk.AccAddressFromBech32(msg.GetLender())
+	if err != nil {
+		panic(err)
+	}
+	return []sdk.AccAddress{lender}
+}
+
+// GetSignBytes get the bytes for the message signer to sign on.
+func (msg *MsgFundModuleAccountsForInterest) GetSignBytes() []byte {
+	bz := ModuleCdc.MustMarshalJSON(msg)
+	return sdk.MustSortJSON(bz)
+}

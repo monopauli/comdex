@@ -40,6 +40,7 @@ func GetTxCmd() *cobra.Command {
 		txBorrowAssetAlternate(),
 		txFundModuleAccounts(),
 		txCalculateInterestAndRewards(),
+		txFundModuleAccountsForInterest(),
 	)
 
 	return cmd
@@ -919,6 +920,42 @@ func txCalculateInterestAndRewards() *cobra.Command {
 		},
 	}
 
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func txFundModuleAccountsForInterest() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "fund-module-interest [pool_id] [asset_id] [amount]",
+		Short: "Deposit amount to the respective module account for bootstrapping interest",
+		Long: `This is a interest liquidity bootstrapping function only for the protocol admins. 
+				No user should run this transaction as it will lead to loss of funds.`,
+		Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			poolID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			assetID, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			amount, err := sdk.ParseCoinNormalized(args[2])
+			if err != nil {
+				return err
+			}
+
+			msg := types.NewMsgFundModuleAccountsForInterest(poolID, assetID, ctx.GetFromAddress().String(), amount)
+			return tx.GenerateOrBroadcastTxCLI(ctx, cmd.Flags(), msg)
+		},
+	}
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
