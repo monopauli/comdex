@@ -2,14 +2,13 @@ package app
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	"github.com/cosmos/cosmos-sdk/x/staking"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	tmprototypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 // ExportAppStateAndValidators exports the state of the application for a genesis
@@ -33,7 +32,7 @@ func (a *App) ExportAppStateAndValidators(
 		return servertypes.ExportedApp{}, err
 	}
 
-	validators, err := staking.WriteValidators(ctx, a.StakingKeeper)
+	validators, err := a.GetValidatorSet(ctx)
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
@@ -50,22 +49,22 @@ func (a *App) ExportAppStateAndValidators(
 //
 //	in favour of export at a block height
 func (a *App) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []string) {
-	applyAllowedAddrs := false
+	// applyAllowedAddrs := false
 
 	// check if there is a allowed address list
-	if len(jailAllowedAddrs) > 0 {
-		applyAllowedAddrs = true
-	}
+	// if len(jailAllowedAddrs) > 0 {
+	// 	applyAllowedAddrs = true
+	// }
 
-	allowedAddrsMap := make(map[string]bool)
+	// allowedAddrsMap := make(map[string]bool)
 
-	for _, addr := range jailAllowedAddrs {
-		_, err := sdk.ValAddressFromBech32(addr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		allowedAddrsMap[addr] = true
-	}
+	// for _, addr := range jailAllowedAddrs {
+	// 	_, err := sdk.ValAddressFromBech32(addr)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	allowedAddrsMap[addr] = true
+	// }
 
 	/* Just to be safe, assert the invariants on current state. */
 	a.CrisisKeeper.AssertInvariants(ctx)
@@ -73,50 +72,50 @@ func (a *App) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []strin
 	/* Handle fee distribution state. */
 
 	// withdraw all validator commission
-	a.StakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
-		_, err := a.DistrKeeper.WithdrawValidatorCommission(ctx, val.GetOperator())
-		if err != nil {
-			panic(err)
-		}
-		return false
-	})
+	// a.StakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
+	// 	_, err := a.DistrKeeper.WithdrawValidatorCommission(ctx, val.GetOperator())
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	return false
+	// })
 
 	// withdraw all delegator rewards
-	dels := a.StakingKeeper.GetAllDelegations(ctx)
-	for _, delegation := range dels {
-		_, err := a.DistrKeeper.WithdrawDelegationRewards(ctx, delegation.GetDelegatorAddr(), delegation.GetValidatorAddr())
-		if err != nil {
-			panic(err)
-		}
-	}
+	// dels := a.StakingKeeper.GetAllDelegations(ctx)
+	// for _, delegation := range dels {
+	// 	_, err := a.DistrKeeper.WithdrawDelegationRewards(ctx, delegation.GetDelegatorAddr(), delegation.GetValidatorAddr())
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	// clear validator slash events
-	a.DistrKeeper.DeleteAllValidatorSlashEvents(ctx)
+	// a.DistrKeeper.DeleteAllValidatorSlashEvents(ctx)
 
 	// clear validator historical rewards
-	a.DistrKeeper.DeleteAllValidatorHistoricalRewards(ctx)
+	// a.DistrKeeper.DeleteAllValidatorHistoricalRewards(ctx)
 
 	// set context height to zero
 	height := ctx.BlockHeight()
 	ctx = ctx.WithBlockHeight(0)
 
 	// reinitialize all validators
-	a.StakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
-		// donate any unwithdrawn outstanding reward fraction tokens to the community pool
-		scraps := a.DistrKeeper.GetValidatorOutstandingRewardsCoins(ctx, val.GetOperator())
-		feePool := a.DistrKeeper.GetFeePool(ctx)
-		feePool.CommunityPool = feePool.CommunityPool.Add(scraps...)
-		a.DistrKeeper.SetFeePool(ctx, feePool)
+	// a.StakingKeeper.IterateValidators(ctx, func(_ int64, val stakingtypes.ValidatorI) (stop bool) {
+	// 	// donate any unwithdrawn outstanding reward fraction tokens to the community pool
+	// 	scraps := a.DistrKeeper.GetValidatorOutstandingRewardsCoins(ctx, val.GetOperator())
+	// 	feePool := a.DistrKeeper.GetFeePool(ctx)
+	// 	feePool.CommunityPool = feePool.CommunityPool.Add(scraps...)
+	// 	a.DistrKeeper.SetFeePool(ctx, feePool)
 
-		a.DistrKeeper.Hooks().AfterValidatorCreated(ctx, val.GetOperator())
-		return false
-	})
+	// 	a.DistrKeeper.Hooks().AfterValidatorCreated(ctx, val.GetOperator())
+	// 	return false
+	// })
 
 	// reinitialize all delegations
-	for _, del := range dels {
-		a.DistrKeeper.Hooks().BeforeDelegationCreated(ctx, del.GetDelegatorAddr(), del.GetValidatorAddr())
-		a.DistrKeeper.Hooks().AfterDelegationModified(ctx, del.GetDelegatorAddr(), del.GetValidatorAddr())
-	}
+	// for _, del := range dels {
+	// 	a.DistrKeeper.Hooks().BeforeDelegationCreated(ctx, del.GetDelegatorAddr(), del.GetValidatorAddr())
+	// 	a.DistrKeeper.Hooks().AfterDelegationModified(ctx, del.GetDelegatorAddr(), del.GetValidatorAddr())
+	// }
 
 	// reset context height
 	ctx = ctx.WithBlockHeight(height)
@@ -124,53 +123,53 @@ func (a *App) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []strin
 	/* Handle staking state. */
 
 	// iterate through redelegations, reset creation height
-	a.StakingKeeper.IterateRedelegations(ctx, func(_ int64, red stakingtypes.Redelegation) (stop bool) {
-		for i := range red.Entries {
-			red.Entries[i].CreationHeight = 0
-		}
-		a.StakingKeeper.SetRedelegation(ctx, red)
-		return false
-	})
+	// a.StakingKeeper.IterateRedelegations(ctx, func(_ int64, red stakingtypes.Redelegation) (stop bool) {
+	// 	for i := range red.Entries {
+	// 		red.Entries[i].CreationHeight = 0
+	// 	}
+	// 	a.StakingKeeper.SetRedelegation(ctx, red)
+	// 	return false
+	// })
 
 	// iterate through unbonding delegations, reset creation height
-	a.StakingKeeper.IterateUnbondingDelegations(ctx, func(_ int64, ubd stakingtypes.UnbondingDelegation) (stop bool) {
-		for i := range ubd.Entries {
-			ubd.Entries[i].CreationHeight = 0
-		}
-		a.StakingKeeper.SetUnbondingDelegation(ctx, ubd)
-		return false
-	})
+	// a.StakingKeeper.IterateUnbondingDelegations(ctx, func(_ int64, ubd stakingtypes.UnbondingDelegation) (stop bool) {
+	// 	for i := range ubd.Entries {
+	// 		ubd.Entries[i].CreationHeight = 0
+	// 	}
+	// 	a.StakingKeeper.SetUnbondingDelegation(ctx, ubd)
+	// 	return false
+	// })
 
 	// Iterate through validators by power descending, reset bond heights, and
 	// update bond intra-tx counters.
-	store := ctx.KVStore(a.keys[stakingtypes.StoreKey])
-	iter := sdk.KVStoreReversePrefixIterator(store, stakingtypes.ValidatorsKey)
-	counter := int16(0)
+	// store := ctx.KVStore(a.keys[stakingtypes.StoreKey])
+	// iter := sdk.KVStoreReversePrefixIterator(store, stakingtypes.ValidatorsKey)
+	// counter := int16(0)
 
-	for ; iter.Valid(); iter.Next() {
-		addr := sdk.ValAddress(iter.Key()[1:])
-		validator, found := a.StakingKeeper.GetValidator(ctx, addr)
-		if !found {
-			panic("expected validator, not found")
-		}
+	// for ; iter.Valid(); iter.Next() {
+	// 	addr := sdk.ValAddress(iter.Key()[1:])
+	// 	validator, found := a.StakingKeeper.GetValidator(ctx, addr)
+	// 	if !found {
+	// 		panic("expected validator, not found")
+	// 	}
 
-		validator.UnbondingHeight = 0
-		if applyAllowedAddrs && !allowedAddrsMap[addr.String()] {
-			validator.Jailed = true
-		}
+	// 	validator.UnbondingHeight = 0
+	// 	if applyAllowedAddrs && !allowedAddrsMap[addr.String()] {
+	// 		validator.Jailed = true
+	// 	}
 
-		a.StakingKeeper.SetValidator(ctx, validator)
-		counter++
-	}
+	// 	a.StakingKeeper.SetValidator(ctx, validator)
+	// 	counter++
+	// }
 
-	err := iter.Close()
-	if err != nil {
-		return
-	}
+	// err := iter.Close()
+	// if err != nil {
+	// 	return
+	// }
 
-	if _, err := a.StakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx); err != nil {
-		panic(err)
-	}
+	// if _, err := a.StakingKeeper.ApplyAndReturnValidatorSetUpdates(ctx); err != nil {
+	// 	panic(err)
+	// }
 
 	/* Handle slashing state. */
 
@@ -183,4 +182,18 @@ func (a *App) prepForZeroHeightGenesis(ctx sdk.Context, jailAllowedAddrs []strin
 			return false
 		},
 	)
+}
+
+// GetValidatorSet returns a slice of bonded validators.
+func (app *App) GetValidatorSet(ctx sdk.Context) ([]tmtypes.GenesisValidator, error) {
+	cVals := app.ConsumerKeeper.GetAllCCValidator(ctx)
+	if len(cVals) == 0 {
+		return nil, fmt.Errorf("empty validator set")
+	}
+
+	vals := []tmtypes.GenesisValidator{}
+	for _, v := range cVals {
+		vals = append(vals, tmtypes.GenesisValidator{Address: v.Address, Power: v.Power})
+	}
+	return vals, nil
 }
