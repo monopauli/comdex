@@ -35,8 +35,6 @@ require (
 	mvdan.cc/gofumpt v0.4.0
 )
 
-require github.com/cosmos/ibc-go/v4 v4.3.0
-
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
 	filippo.io/edwards25519 v1.0.0-beta.2 // indirect
