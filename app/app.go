@@ -2,27 +2,29 @@ package app
 
 import (
 	"fmt"
-	ccvconsumer "github.com/cosmos/interchain-security/x/ccv/consumer"
-	ccvconsumerkeeper "github.com/cosmos/interchain-security/x/ccv/consumer/keeper"
-	ccvconsumertypes "github.com/cosmos/interchain-security/x/ccv/consumer/types"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+
+	ccvconsumer "github.com/cosmos/interchain-security/x/ccv/consumer"
+	ccvconsumerkeeper "github.com/cosmos/interchain-security/x/ccv/consumer/keeper"
+	ccvconsumertypes "github.com/cosmos/interchain-security/x/ccv/consumer/types"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/cast"
 
-	icacontrollertypes "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts/controller/types"
+	icacontrollertypes "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/controller/types"
 	"github.com/rakyll/statik/fs"
 
-	ica "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts"
-	icahost "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts/host"
-	icahostkeeper "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts/host/keeper"
-	icahosttypes "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts/host/types"
-	icatypes "github.com/cosmos/ibc-go/v3/modules/apps/27-interchain-accounts/types"
+	ica "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts"
+	icahost "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/host"
+	icahostkeeper "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/host/keeper"
+	icahosttypes "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/host/types"
+	icatypes "github.com/cosmos/ibc-go/v4/modules/apps/27-interchain-accounts/types"
 
 	wasmclient "github.com/CosmWasm/wasmd/x/wasm/client"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
@@ -56,6 +58,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	crisiskeeper "github.com/cosmos/cosmos-sdk/x/crisis/keeper"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
+
 	//distr "github.com/cosmos/cosmos-sdk/x/distribution"
 	//distrclient "github.com/cosmos/cosmos-sdk/x/distribution/client"
 	//distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
@@ -71,6 +74,7 @@ import (
 	govclient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	govkeeper "github.com/cosmos/cosmos-sdk/x/gov/keeper"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
+
 	//"github.com/cosmos/cosmos-sdk/x/mint"
 	//mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	//minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -82,21 +86,25 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
+
 	//stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	//stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/cosmos/cosmos-sdk/x/upgrade"
 	upgradeclient "github.com/cosmos/cosmos-sdk/x/upgrade/client"
 	upgradekeeper "github.com/cosmos/cosmos-sdk/x/upgrade/keeper"
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
-	ibctransfer "github.com/cosmos/ibc-go/v3/modules/apps/transfer"
-	ibctransferkeeper "github.com/cosmos/ibc-go/v3/modules/apps/transfer/keeper"
-	ibctransfertypes "github.com/cosmos/ibc-go/v3/modules/apps/transfer/types"
-	ibc "github.com/cosmos/ibc-go/v3/modules/core"
-	ibcclient "github.com/cosmos/ibc-go/v3/modules/core/02-client"
-	ibcclienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
-	ibcporttypes "github.com/cosmos/ibc-go/v3/modules/core/05-port/types"
-	ibchost "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-	ibckeeper "github.com/cosmos/ibc-go/v3/modules/core/keeper"
+	ibctransfer "github.com/cosmos/ibc-go/v4/modules/apps/transfer"
+	ibctransferkeeper "github.com/cosmos/ibc-go/v4/modules/apps/transfer/keeper"
+	ibctransfertypes "github.com/cosmos/ibc-go/v4/modules/apps/transfer/types"
+	ibc "github.com/cosmos/ibc-go/v4/modules/core"
+	ibcclient "github.com/cosmos/ibc-go/v4/modules/core/02-client"
+	ibcclienttypes "github.com/cosmos/ibc-go/v4/modules/core/02-client/types"
+	ibcporttypes "github.com/cosmos/ibc-go/v4/modules/core/05-port/types"
+	ibchost "github.com/cosmos/ibc-go/v4/modules/core/24-host"
+	ibckeeper "github.com/cosmos/ibc-go/v4/modules/core/keeper"
+	ibctestingcore "github.com/cosmos/interchain-security/legacy_ibc_testing/core"
+	ibctesting "github.com/cosmos/interchain-security/legacy_ibc_testing/testing"
+	"github.com/tendermint/spm/cosmoscmd"
 
 	"github.com/comdex-official/comdex/x/liquidation"
 	liquidationkeeper "github.com/comdex-official/comdex/x/liquidation/keeper"
@@ -216,6 +224,10 @@ func GetGovProposalHandlers() []govclient.ProposalHandler {
 }
 
 var (
+	_ ibctesting.TestingApp = (*App)(nil)
+	//_ simapp.App              = (*App)(nil)
+	_ servertypes.Application = (*App)(nil)
+	_ cosmoscmd.CosmosApp     = (*App)(nil)
 	// DefaultNodeHome default home directories for the application daemon
 	DefaultNodeHome string
 	// If EnableSpecificWasmProposals is "", and this is "true", then enable all x/wasm proposals.
@@ -277,6 +289,14 @@ func init() {
 	}
 
 	DefaultNodeHome = filepath.Join(userHomeDir, "."+Name)
+}
+
+type MyAppVersionGetter struct {
+	App *App
+}
+
+func (m MyAppVersionGetter) GetAppVersion(ctx sdk.Context, portID, channelID string) (string, bool) {
+	return strconv.FormatUint((m.App.BaseApp.AppVersion()), 10), true
 }
 
 // App extends an ABCI application, but with most of its parameters exported.
@@ -346,6 +366,12 @@ type App struct {
 	mm *module.Manager
 	// Module configurator
 	configurator module.Configurator
+}
+
+func (app App) GetAppVersionGetter() func(ctx sdk.Context, portID, channelID string) (uint64, bool) {
+	return func(ctx sdk.Context, portID, channelID string) (uint64, bool) {
+		return app.BaseApp.AppVersion(), true
+	}
 }
 
 // New returns a reference to an initialized App.
@@ -639,6 +665,7 @@ func New(
 		&app.MarketKeeper,
 		app.AssetKeeper,
 	)
+
 	bandoracleModule := bandoraclemodule.NewAppModule(
 		appCodec,
 		app.BandoracleKeeper,
@@ -822,7 +849,9 @@ func New(
 
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)
 	ibcRouter.AddRoute(bandoraclemoduletypes.ModuleName, bandOracleIBCModule)
-	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.WasmKeeper, app.IbcKeeper.ChannelKeeper))
+
+	appVersionGetter := MyAppVersionGetter{App: app}
+	ibcRouter.AddRoute(wasm.ModuleName, wasm.NewIBCHandler(app.WasmKeeper, app.IbcKeeper.ChannelKeeper, appVersionGetter))
 	ibcRouter.AddRoute(icahosttypes.SubModuleName, icaHostIBCModule)
 	ibcRouter.AddRoute(ccvconsumertypes.ModuleName, consumerModule)
 	app.IbcKeeper.SetRouter(ibcRouter)
@@ -1070,6 +1099,10 @@ func New(
 	return app
 }
 
+func (a *App) getAppVersion(ctx sdk.Context, portID, channelID string) (uint64, bool) {
+	return a.BaseApp.AppVersion(), true
+}
+
 // Name returns the name of the App
 func (a *App) Name() string { return a.BaseApp.Name() }
 
@@ -1126,7 +1159,7 @@ func (a *App) LegacyAmino() *codec.LegacyAmino {
 //
 // NOTE: This is solely to be used for testing purposes as it may be desirable
 // for modules to register their own custom testing types.
-func (a *App) AppCodec() codec.BinaryCodec {
+func (a *App) AppCodec() codec.Codec {
 	return a.cdc
 }
 
@@ -1162,6 +1195,33 @@ func (a *App) GetMemKey(storeKey string) *sdk.MemoryStoreKey {
 func (a *App) GetSubspace(moduleName string) paramstypes.Subspace {
 	subspace, _ := a.ParamsKeeper.GetSubspace(moduleName)
 	return subspace
+}
+
+// TestingApp functions
+
+// GetBaseApp implements the TestingApp interface.
+func (app *App) GetBaseApp() *baseapp.BaseApp {
+	return app.BaseApp
+}
+
+// GetStakingKeeper implements the TestingApp interface.
+func (app *App) GetStakingKeeper() ibctestingcore.StakingKeeper {
+	return app.ConsumerKeeper
+}
+
+// GetIBCKeeper implements the TestingApp interface.
+func (app *App) GetIBCKeeper() *ibckeeper.Keeper {
+	return app.IbcKeeper
+}
+
+// GetScopedIBCKeeper implements the TestingApp interface.
+func (app *App) GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper {
+	return app.ScopedIBCKeeper
+}
+
+// GetTxConfig implements the TestingApp interface.
+func (app *App) GetTxConfig() client.TxConfig {
+	return cosmoscmd.MakeEncodingConfig(ModuleBasics).TxConfig
 }
 
 // RegisterAPIRoutes registers all application module routes with the provided

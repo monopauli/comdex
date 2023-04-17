@@ -3,8 +3,8 @@ package expected
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibcexported "github.com/cosmos/ibc-go/v3/modules/core/exported"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibcexported "github.com/cosmos/ibc-go/v4/modules/core/exported"
 
 	assettypes "github.com/comdex-official/comdex/x/asset/types"
 	marketttypes "github.com/comdex-official/comdex/x/market/types"
@@ -20,7 +20,7 @@ type AssetKeeper interface {
 }
 
 type ChannelKeeper interface {
-	GetChannel(ctx sdk.Context, srcPort, srcChan string) (channel channeltypes.Channel, found bool)
+	GetChannel(ctx sdk.Context, srcPort, srcChannel string) (channel channeltypes.Channel, found bool)
 	GetNextSequenceSend(ctx sdk.Context, portID, channelID string) (uint64, bool)
 	SendPacket(ctx sdk.Context, channelCap *capabilitytypes.Capability, packet ibcexported.PacketI) error
 }
@@ -35,3 +35,11 @@ type ScopedKeeper interface {
 	ClaimCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) error
 	GetCapability(ctx sdk.Context, name string) (*capabilitytypes.Capability, bool)
 }
+
+// type ChannelKeeperWrapper struct {
+// 	Keeper
+// }
+
+// func (w ChannelKeeperWrapper) GetChannel(ctx sdk.Context, srcPort string, srcChannel string) (channeltypes.Channel, bool) {
+// 	return w.Keeper.GetChannel(ctx, srcPort, srcChannel)
+// }
