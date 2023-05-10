@@ -1,9 +1,9 @@
 module github.com/comdex-official/comdex
 
-go 1.19
+go 1.20
 
 require (
-	github.com/CosmWasm/wasmvm v1.2.2
+	github.com/CosmWasm/wasmvm v1.2.3
 	github.com/confio/ics23/go v0.10.0 // indirect
 	github.com/gogo/protobuf v1.3.3
 	github.com/golang/protobuf v1.5.3
@@ -26,12 +26,12 @@ require (
 	github.com/CosmWasm/wasmd v0.31.0
 	github.com/bandprotocol/bandchain-packet v0.0.3
 	github.com/cosmos/cosmos-sdk v0.45.15
-	github.com/cosmos/ibc-go/v4 v4.4.0
-	github.com/cosmos/interchain-security v1.2.0
+	github.com/cosmos/ibc-go/v4 v4.3.0
+	github.com/cosmos/interchain-security v1.0.1-0.20230419165046-6089b6121c33
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/rakyll/statik v0.1.7
 	github.com/spf13/pflag v1.0.5
-	github.com/tendermint/tendermint v0.35.9
+	github.com/tendermint/tendermint v0.34.27
 	gopkg.in/yaml.v2 v2.4.0
 	mvdan.cc/gofumpt v0.4.0
 )
@@ -295,9 +295,9 @@ require (
 )
 
 replace (
-	github.com/CosmWasm/wasmd => github.com/neutron-org/wasmd v0.31.1-neutron-fixes
-	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.3
-	github.com/comdex-official/comdex => github.com/monopauli/comdex v1.0.0
+	//github.com/CosmWasm/wasmd => github.com/neutron-org/wasmd v0.31.1-neutron-fixes
+	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.2
+	github.com/comdex-official/comdex => github.com/monopauli/comdex v0.1.0-ics-pre
 	github.com/confio/ics23/go => github.com/confio/ics23/go v0.7.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.45.15-ics
 	github.com/cosmos/iavl => github.com/cosmos/iavl v0.17.3
@@ -305,8 +305,8 @@ replace (
 	//github.com/cosmos/ibc-go/v3 => github.com/informalsystems/ibc-go/v3 v3.0.0-beta1.0.20220816140824-aba9c2f2b943
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	// Informal Tendermint fork
-	//github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.35.9
+	//github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.34.21
 	//github.com/tendermint/tendermint => github.com/informalsystems/tendermint v0.34.26
-	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.27
+	github.com/tendermint/tendermint => github.com/monopauli/cometbft v0.34.27-return
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 )
