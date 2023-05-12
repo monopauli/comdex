@@ -23,11 +23,12 @@ require (
 )
 
 require (
-	github.com/CosmWasm/wasmd v0.28.0
+	github.com/CosmWasm/wasmd v0.31.0
 	github.com/bandprotocol/bandchain-packet v0.0.3
 	github.com/cosmos/cosmos-sdk v0.45.15
 	github.com/cosmos/ibc-go/v4 v4.3.0
-	github.com/cosmos/interchain-security v1.0.1-0.20230419165046-6089b6121c33
+	github.com/cosmos/interchain-security v1.2.0
+	//github.com/cosmos/interchain-security v1.0.1-0.20230419165046-6089b6121c33
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/rakyll/statik v0.1.7
 	github.com/spf13/pflag v1.0.5
@@ -87,10 +88,10 @@ require (
 	github.com/cosmos/cosmos-db v0.0.0-20221226095112-f3c38ecb5e32 // indirect
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2 // indirect
 	github.com/cosmos/go-bip39 v1.0.0 // indirect
+	github.com/cosmos/gogoproto v1.4.6 // indirect
 	github.com/cosmos/gorocksdb v1.2.0 // indirect
 	github.com/cosmos/iavl v0.19.5 // indirect
-	github.com/cosmos/ibc-go/v3 v3.0.0 // indirect
-	github.com/cosmos/ledger-cosmos-go v0.13.0 // indirect
+	github.com/cosmos/ledger-cosmos-go v0.12.2 // indirect
 	github.com/creachadair/taskgroup v0.3.2 // indirect
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
 	github.com/daixiang0/gci v0.8.1 // indirect
@@ -102,6 +103,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
+	github.com/docker/distribution v2.8.1+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/esimonov/ifshort v1.0.4 // indirect
@@ -213,6 +215,7 @@ require (
 	github.com/nishanths/exhaustive v0.8.3 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
@@ -293,18 +296,18 @@ require (
 )
 
 replace (
-	//github.com/CosmWasm/wasmd => github.com/neutron-org/wasmd v0.28.0-ics-support
+	github.com/CosmWasm/wasmd => github.com/neutron-org/wasmd v0.31.1-neutron-fixes
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.23.4
 	github.com/comdex-official/comdex => github.com/monopauli/comdex v0.1.0-ics-pre
 	github.com/confio/ics23/go => github.com/confio/ics23/go v0.7.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.45.15-ics
-	github.com/cosmos/iavl => github.com/cosmos/iavl v0.17.3
+	//github.com/cosmos/iavl => github.com/cosmos/iavl v0.16.0
 	github.com/cosmos/ibc-go/v4 => github.com/cosmos/ibc-go/v4 v4.4.0
 	//github.com/cosmos/ibc-go/v3 => github.com/informalsystems/ibc-go/v3 v3.0.0-beta1.0.20220816140824-aba9c2f2b943
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	// Informal Tendermint fork
 	//github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.34.21
-	//github.com/tendermint/tendermint => github.com/informalsystems/tendermint v0.34.26
-	github.com/tendermint/tendermint => github.com/monopauli/cometbft v0.34.27-nopubkeyverify
+	//github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.34.24
+	github.com/tendermint/tendermint => github.com/cometbft/cometbft v0.34.28
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 )
