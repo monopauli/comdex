@@ -525,24 +525,22 @@ func New(
 	//	app.ModuleAccountAddrs(),
 	//)
 
-	app.ConsumerKeeper = ccvconsumerkeeper.NewKeeper(
-		appCodec,
-		keys[ccvconsumertypes.StoreKey],
-		app.GetSubspace(ccvconsumertypes.ModuleName),
-		scopedCCVConsumerKeeper,
-		app.IbcKeeper.ChannelKeeper,
-		&app.IbcKeeper.PortKeeper,
-		app.IbcKeeper.ConnectionKeeper,
-		app.IbcKeeper.ClientKeeper,
-		app.SlashingKeeper,
-		app.BankKeeper,
-		app.AccountKeeper,
-		&app.IbcTransferKeeper,
-		app.IbcKeeper,
-		authtypes.FeeCollectorName,
+	app.UpgradeKeeper = upgradekeeper.NewKeeper(
+		skipUpgradeHeights,
+		app.keys[upgradetypes.StoreKey],
+		app.cdc,
+		homePath,
+		app.BaseApp,
 	)
-	app.ConsumerKeeper = *app.ConsumerKeeper.SetHooks(app.SlashingKeeper.Hooks())
-	consumerModule := ccvconsumer.NewAppModule(app.ConsumerKeeper)
+
+	app.IbcKeeper = ibckeeper.NewKeeper(
+		app.cdc,
+		app.keys[ibchost.StoreKey],
+		app.GetSubspace(ibchost.ModuleName),
+		&app.ConsumerKeeper,
+		app.UpgradeKeeper,
+		scopedIBCKeeper,
+	)
 
 	app.SlashingKeeper = slashingkeeper.NewKeeper(
 		app.cdc,
@@ -561,32 +559,6 @@ func New(
 		keys[authzkeeper.StoreKey],
 		app.cdc,
 		baseApp.MsgServiceRouter(),
-	)
-
-	app.UpgradeKeeper = upgradekeeper.NewKeeper(
-		skipUpgradeHeights,
-		app.keys[upgradetypes.StoreKey],
-		app.cdc,
-		homePath,
-		app.BaseApp,
-	)
-	// register the staking hooks
-	// NOTE: StakingKeeper above is passed by reference, so that it will contain these hooks
-	//app.StakingKeeper = *stakingKeeper.SetHooks(
-	//	stakingtypes.NewMultiStakingHooks(
-	//		app.DistrKeeper.Hooks(),
-	//		app.SlashingKeeper.Hooks(),
-	//	),
-	//)
-
-	// Create IBC Keeper
-	app.IbcKeeper = ibckeeper.NewKeeper(
-		app.cdc,
-		app.keys[ibchost.StoreKey],
-		app.GetSubspace(ibchost.ModuleName),
-		&app.ConsumerKeeper,
-		app.UpgradeKeeper,
-		scopedIBCKeeper,
 	)
 
 	app.ICAHostKeeper = icahostkeeper.NewKeeper(
@@ -782,6 +754,37 @@ func New(
 		&app.EsmKeeper,
 		&app.LendKeeper,
 	)
+
+	app.ConsumerKeeper = ccvconsumerkeeper.NewKeeper(
+		appCodec,
+		keys[ccvconsumertypes.StoreKey],
+		app.GetSubspace(ccvconsumertypes.ModuleName),
+		scopedCCVConsumerKeeper,
+		app.IbcKeeper.ChannelKeeper,
+		&app.IbcKeeper.PortKeeper,
+		app.IbcKeeper.ConnectionKeeper,
+		app.IbcKeeper.ClientKeeper,
+		app.SlashingKeeper,
+		app.BankKeeper,
+		app.AccountKeeper,
+		&app.IbcTransferKeeper,
+		app.IbcKeeper,
+		authtypes.FeeCollectorName,
+	)
+
+	app.ConsumerKeeper = *app.ConsumerKeeper.SetHooks(app.SlashingKeeper.Hooks())
+	consumerModule := ccvconsumer.NewAppModule(app.ConsumerKeeper)
+
+	// register the staking hooks
+	// NOTE: StakingKeeper above is passed by reference, so that it will contain these hooks
+	//app.StakingKeeper = *stakingKeeper.SetHooks(
+	//	stakingtypes.NewMultiStakingHooks(
+	//		app.DistrKeeper.Hooks(),
+	//		app.SlashingKeeper.Hooks(),
+	//	),
+	//)
+
+	// Create IBC Keeper
 
 	wasmDir := filepath.Join(homePath, "wasm")
 	wasmConfig, err := wasm.ReadWasmConfig(appOptions)
@@ -1119,6 +1122,9 @@ func (a *App) EndBlocker(ctx sdk.Context, req abcitypes.RequestEndBlock) abcityp
 
 // InitChainer application update at chain initialization.
 func (a *App) InitChainer(ctx sdk.Context, req abcitypes.RequestInitChain) abcitypes.ResponseInitChain {
+	for key, value := range a.keys {
+		fmt.Println("Found key in keys map: ", key, value)
+	}
 	var state GenesisState
 	if err := tmjson.Unmarshal(req.AppStateBytes, &state); err != nil {
 		panic(err)

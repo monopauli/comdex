@@ -298,11 +298,11 @@ require (
 replace (
 	github.com/CosmWasm/wasmd => github.com/neutron-org/wasmd v0.31.1-neutron-fixes
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.23.4
-	github.com/comdex-official/comdex => github.com/monopauli/comdex v0.1.0-ics-pre
+	github.com/comdex-official/comdex => github.com/monopauli/comdex v0.1.0-ics-pre-2
 	github.com/confio/ics23/go => github.com/confio/ics23/go v0.7.0
 	github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.45.15-ics
 	//github.com/cosmos/iavl => github.com/cosmos/iavl v0.16.0
-	github.com/cosmos/ibc-go/v4 => github.com/cosmos/ibc-go/v4 v4.4.0
+	github.com/cosmos/ibc-go/v4 => github.com/cosmos/ibc-go/v4 v4.3.0
 	//github.com/cosmos/ibc-go/v3 => github.com/informalsystems/ibc-go/v3 v3.0.0-beta1.0.20220816140824-aba9c2f2b943
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	// Informal Tendermint fork
